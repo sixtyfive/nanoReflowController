@@ -1,5 +1,6 @@
 // ----------------------------------------------------------------------------
 // Reflow Oven Controller
+// Further work done in 2019, J. R. Schmid <jrs@weitnahbei.de>
 // (c) 2017 Debugged and restructured by David Sanz Kirbis
 // (c) 2014 Karl Pitrich <karl@pitrich.com>
 // (c) 2012-2013 Ed Simmons
@@ -9,9 +10,9 @@
 #include <EEPROM.h>
 #include <PID_v1.h>
 #include <SPI.h>
-#include <PDQ_GFX.h>             // PDQ: Core graphics library
-#include "PDQ_ST7735_config.h"   // PDQ: ST7735 pins and other setup for this sketch
-#include <PDQ_ST7735.h>          // PDQ: Hardware-specific driver library
+#include <PDQ_GFX.h>            // PDQ: Core graphics library
+#include "PDQ_ST7735_config.h"  // PDQ: ST7735 pins and other setup for this sketch
+#include <PDQ_ST7735.h>         // PDQ: Hardware-specific driver library
 #include <Menu.h>
 #include <ClickEncoder.h>
 #include <TimerOne.h>
@@ -26,18 +27,22 @@
 #ifdef PIDTUNE
 #include <PID_AutoTune_v0.h>
 #endif
+
 // ----------------------------------------------------------------------------
+
 volatile uint32_t    timerTicks       = 0;
 volatile uint8_t     phaseCounter     = 0;
 static const uint8_t TIMER1_PERIOD_US = 100;
+
 // ----------------------------------------------------------------------------
+
 uint32_t lastUpdate        = 0;
 uint32_t lastDisplayUpdate = 0;
 State    previousState     = Idle;
 bool     stateChanged      = false;
 uint32_t stateChangedTicks = 0;
-// ----------------------------------------------------------------------------
-// PID
+
+// PID ------------------------------------------------------------------------
 
 PID PID(&Input, &Output, &Setpoint, heaterPID.Kp, heaterPID.Ki, heaterPID.Kd, DIRECT);
 
@@ -51,11 +56,7 @@ double aTuneStep       =  50,
 unsigned int aTuneLookBack = 30;
 #endif
 
-/*************************************/
-
-
-/*************************************/
-
+// ----------------------------------------------------------------------------
 
 typedef struct {
   double temp;
@@ -66,43 +67,40 @@ Temp_t airTemp[NUM_TEMP_READINGS];
 
 double readingsT1[NUM_TEMP_READINGS]; // the readings used to make a stable temp rolling average
 double runningTotalRampRate;
-double rateOfRise = 0;          // the result that is displayed
-double totalT1 = 0;             // the running total
-double averageT1 = 0;           // the average
-uint8_t index = 0;              // the index of the current reading
+double rateOfRise = 0;                // the result that is displayed
+double totalT1 = 0;                   // the running total
+double averageT1 = 0;                 // the average
+uint8_t index = 0;                    // the index of the current reading
 uint8_t thermocoupleErrorCount;
 
-
 // ----------------------------------------------------------------------------
-// Ensure that Solid State Relais are off when starting
-//
+
 void setupPins(void) {
-
-pinAsOutput(PIN_HEATER);
-digitalLow(PIN_HEATER); // off
-pinAsOutput(PIN_FAN);
-digitalHigh(PIN_FAN);
-pinAsInputPullUp(PIN_ZX);
-pinAsOutput(PIN_TC_CS);
-pinAsOutput(PIN_LCD_CS);
-pinAsOutput(PIN_TC_CS);
-#ifdef WITH_BEEPER
-    pinAsOutput(PIN_BEEPER);
-#endif
-
+  pinAsOutput(PIN_HEATER);
+  digitalLow(PIN_HEATER); // ensure that relay/s or TRIAC/s is/are off at startup
+  pinAsOutput(PIN_FAN);
+  digitalHigh(PIN_FAN);
+  pinAsInputPullUp(PIN_ZX);
+  pinAsOutput(PIN_TC_CS);
+  pinAsOutput(PIN_LCD_CS);
+  pinAsOutput(PIN_TC_CS);
+  #ifdef WITH_BEEPER
+  pinAsOutput(PIN_BEEPER);
+  #endif
 }
+
 // ----------------------------------------------------------------------------
+
 void killRelayPins(void) {
-Timer1.stop();
-detachInterrupt(INT_ZX);
-digitalHigh(PIN_FAN);
-digitalHigh(PIN_HEATER);
-//PORTD |= (1 << PIN_HEATER) | (1 << PIN_FAN); // off
+  Timer1.stop();
+  detachInterrupt(INT_ZX);
+  digitalHigh(PIN_FAN);
+  digitalHigh(PIN_HEATER);
 }
 
 // ----------------------------------------------------------------------------
-// wave packet control: only turn the solid state relais on for a percentage 
-// of complete sinusoids (i.e. 1x 360°)
+// wave packet control: only turn the relay/s or TRIAC/s on for a percentage 
+// of complete sinusoids (i.e. 1 * 360°)
 
 #define CHANNELS       2
 #define CHANNEL_HEATER 0
@@ -117,17 +115,14 @@ typedef struct Channel_s {
 } Channel_t;
 
 Channel_t Channels[CHANNELS] = {
-  // heater
-  { 0, 0, 0, false, PIN_HEATER }, 
-  // fan
+  { 0, 0, 0, false, PIN_HEATER },
   { 0, 0, 0, false, PIN_FAN } 
 };
 
-// delay to align relay activation with the actual zero crossing
-uint16_t zxLoopDelay = 0;
+uint16_t zxLoopDelay = 0; // delay to align relay activation with the actual zero crossing
 
-#ifdef WITH_CALIBRATION
 // calibrate zero crossing: how many timerIsr happen within one zero crossing
+#ifdef WITH_CALIBRATION
 #define zxCalibrationLoops 128
 struct {
   volatile int8_t iterations;
@@ -137,11 +132,10 @@ struct {
 };
 #endif
 
-// ----------------------------------------------------------------------------
-//                             ZERO CROSSING ISR
-// ----------------------------------------------------------------------------
-// Zero Crossing ISR; per ZX, process one channel per interrupt only
+// Zero-Crossing ISR ----------------------------------------------------------
+// per crossing process one channel per interrupt only
 // NB: use native port IO instead of digitalWrite for better performance
+
 void zeroCrossingIsr(void) {
   static uint8_t ch = 0;
 
@@ -171,9 +165,7 @@ void zeroCrossingIsr(void) {
 #endif
 }
 
-// ----------------------------------------------------------------------------
-//                                    TIMER ISR
-// ----------------------------------------------------------------------------
+// Timer ISR ------------------------------------------------------------------
 // timer interrupt handling
 
 void timerIsr(void) { // ticks with 100µS
@@ -213,11 +205,14 @@ void timerIsr(void) { // ticks with 100µS
   }
 #endif
 }
+
 // ----------------------------------------------------------------------------
+
 void abortWithError(int error) {
   killRelayPins();
   displayError(error);
 }
+
 // ----------------------------------------------------------------------------
 
 void setup() {
@@ -227,29 +222,21 @@ void setup() {
 #endif
   
   setupPins();
-  
- 
   setupTFT();
 
   if (firstRun()) {
     factoryReset();
     loadParameters(0);
-  } 
-  else {
+  } else {
     loadLastUsedProfile();
   }
 
-
-
-  
- 
   do {
     // wait for MAX chip to stabilize
-   delay(500);
-   readThermocouple();
+    delay(500);
+    readThermocouple();
   }
   while ((tcStat > 0) && (thermocoupleErrorCount++ < TC_ERROR_TOLERANCE));
-    
 
   if ((tcStat != 0) || (thermocoupleErrorCount  >= TC_ERROR_TOLERANCE)) {
     abortWithError(tcStat);
@@ -270,14 +257,13 @@ void setup() {
 
   delay(1000);
 
-  #ifdef WITH_BEEPER
-    tone(PIN_BEEPER,BEEP_FREQ,100);
-  #endif
+#ifdef WITH_BEEPER
+  tone(PIN_BEEPER,BEEP_FREQ,100);
+#endif
 
 #ifdef WITH_SPLASH
   displaySplash();
 #endif
-
 
 #ifdef WITH_CALIBRATION
   tft.setCursor(7, 99);  
@@ -299,7 +285,6 @@ void setup() {
   zxLoopDelay = DEFAULT_LOOP_DELAY;
 #endif
 
-//  setupMenu();
   menuExit(Menu::actionDisplay); // reset to initial state
   MenuEngine.navigate(&miCycleStart);
   currentState = Settings;
@@ -352,15 +337,9 @@ void toggleAutoTune() {
 
 // ----------------------------------------------------------------------------
 
-
-
-// ----------------------------------------------------------------------------
-
 void loop(void) 
 {
-  // --------------------------------------------------------------------------
   // handle encoder
-  //
   encMovement = Encoder.getValue();
   if (encMovement) {
     encAbsolute += encMovement;
@@ -370,9 +349,7 @@ void loop(void)
     }
   }
 
-  // --------------------------------------------------------------------------
   // handle button
-  //
   switch (Encoder.getButton()) {
     case ClickEncoder::Clicked:
       if (currentState == Complete) { // at end of cycle; reset at click
@@ -400,18 +377,14 @@ void loop(void)
       break;
   }
 
-  // --------------------------------------------------------------------------
   // update current menu item while in edit mode
-  //
   if (currentState == Edit) {
     if (MenuEngine.currentItem != &Menu::NullItem) {
       MenuEngine.executeCallbackAction(Menu::actionDisplay);      
     }
   }
 
-  // --------------------------------------------------------------------------
   // handle menu update
-  //
   if (menuUpdateRequest) {
     menuUpdateRequest = false;
     if (currentState < UIMenuEnd && !encMovement && currentState != Edit && previousState != Edit) { // clear menu on child/parent navigation
@@ -420,24 +393,20 @@ void loop(void)
     MenuEngine.render(renderMenuItem, menuItemsVisible);
   }
 
-  // --------------------------------------------------------------------------
   // track state changes
-  //
   if (currentState != previousState) {
     stateChangedTicks = zeroCrossTicks;
     stateChanged = true;
     previousState = currentState;
   }
-
-  // --------------------------------------------------------------------------
+  
+  // everything else, i guess???
 
   if (zeroCrossTicks - lastUpdate >= TICKS_PER_UPDATE) {
     uint32_t deltaT = zeroCrossTicks - lastUpdate;
     lastUpdate = zeroCrossTicks;
 
-
     readThermocouple(); // should be sufficient to read it every 250ms or 500ms   
-
 
     if (tcStat > 0) {
       thermocoupleErrorCount++;
@@ -447,17 +416,12 @@ void loop(void)
     }
     else {
         thermocoupleErrorCount = 0;
-#if 0 // verbose thermocouple error bits
-        tft.setCursor(10, 40);
-        for (uint8_t mask = B111; mask; mask >>= 1) {
-          tft.print(mask & tSensor.stat ? '1' : '0');
-        }
-#endif
+
         // rolling average of the temp T1 and T2
-        totalT1 -= readingsT1[index];       // subtract the last reading
+        totalT1 -= readingsT1[index];            // subtract the last reading
         readingsT1[index] = temperature;
-        totalT1 += readingsT1[index];       // add the reading to the total
-        index = (index + 1) % NUM_TEMP_READINGS;  // next position
+        totalT1 += readingsT1[index];            // add the reading to the total
+        index = (index + 1) % NUM_TEMP_READINGS; // next position
         averageT1 = totalT1 / (float)NUM_TEMP_READINGS;  // calculate the average temp
     
         // need to keep track of a few past readings in order to work out rate of rise
@@ -485,6 +449,7 @@ void loop(void)
        Serial.write((uint8_t)Input);
 #endif
     }
+    
     // display update
     if (zeroCrossTicks - lastDisplayUpdate >= TICKS_TO_REDRAW) {
       lastDisplayUpdate = zeroCrossTicks;
@@ -505,9 +470,9 @@ void loop(void)
           PID.SetControllerDirection(DIRECT);
           PID.SetTunings(heaterPID.Kp, heaterPID.Ki, heaterPID.Kd);
           Setpoint = Input;
-          #ifdef WITH_BEEPER
+#ifdef WITH_BEEPER
               tone(PIN_BEEPER,BEEP_FREQ,100);
-          #endif
+#endif
         }
 
         updateRampSetpoint();
@@ -562,13 +527,12 @@ void loop(void)
           lastRampTicks = zeroCrossTicks;
           PID.SetControllerDirection(REVERSE);
           PID.SetTunings(fanPID.Kp, fanPID.Ki, fanPID.Kd);
-          Setpoint = activeProfile.peakTemp - 15; // get it all going with a bit of a kick! v sluggish here otherwise, too hot too long
+          // get it all going with a bit of a kick! very sluggish here otherwise, too hot for too long
+          Setpoint = activeProfile.peakTemp - 15;
 #ifdef WITH_BEEPER
-            tone(PIN_BEEPER,BEEP_FREQ,3000);  // Beep as a reminder that CoolDown starts (and maybe open up the oven door for fast enough cooldown)
+          // beep as a reminder that CoolDown starts (and maybe open up the oven door for fast enough cooldown)
+          tone(PIN_BEEPER,BEEP_FREQ,3000);
 #endif
-#ifdef WITH_SERVO       
-          // TODO: implement servo operated lid
-#endif   
         }
 
         updateRampSetpoint(true);
@@ -576,6 +540,7 @@ void loop(void)
         if (Setpoint <= idleTemp) {
           currentState = CoolDown;
         }
+        
         break;
 #endif
       case CoolDown:
@@ -605,7 +570,6 @@ void loop(void)
         {
           Setpoint = 210.0;
           int8_t val = PIDTune.Runtime();
-         // PIDTune.setpoint = 210.0; // is private inside PIDTune
 
           if (val != 0) {
             currentState = CoolDown;
@@ -668,8 +632,10 @@ void loop(void)
   Channels[CHANNEL_FAN].target = 90 - (uint8_t)fanTmp;
 }
 
+// ----------------------------------------------------------------------------
 
 void saveProfile(unsigned int targetProfile, bool quiet) {
+  // TODO: looking at the saveProfile() definition over in UI.h, does that mean the function is not implemented??
 #ifndef PIDTUNE
   activeProfileId = targetProfile;
 
@@ -701,5 +667,4 @@ bool firstRun() {
   return true;
 }
 
-
-// ------
+// ----------------------------------------------------------------------------

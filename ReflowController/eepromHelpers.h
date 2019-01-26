@@ -10,7 +10,6 @@ const uint16_t offsetFanSpeed   = maxProfiles * sizeof(Profile_t) + 1; // one by
 const uint16_t offsetProfileNum = maxProfiles * sizeof(Profile_t) + 2; // one byte
 const uint16_t offsetPidConfig  = maxProfiles * sizeof(Profile_t) + 3; // sizeof(PID_t)
 
-
 bool savePID() {
   do {} while (!(eeprom_is_ready()));
   eeprom_write_block(&heaterPID, (void *)offsetPidConfig, sizeof(PID_t));
@@ -22,7 +21,6 @@ bool loadPID() {
   eeprom_read_block(&heaterPID, (void *)offsetPidConfig, sizeof(PID_t));
   return true;  
 }
-
 
 void saveFanSpeed() {
   EEPROM.write(offsetFanSpeed, (uint8_t)fanAssistSpeed & 0xff);
@@ -36,7 +34,6 @@ void loadFanSpeed() {
 void saveLastUsedProfile() {
   EEPROM.write(offsetProfileNum, (uint8_t)activeProfileId & 0xff);
 }
-
 
 bool loadParameters(uint8_t profile) {
   uint16_t offset = profile * sizeof(Profile_t);
@@ -70,4 +67,4 @@ bool saveParameters(uint8_t profile) {
   return true;
 }
 
-#endif EEPROM_HELPERS_H
+#endif // EEPROM_HELPERS_H

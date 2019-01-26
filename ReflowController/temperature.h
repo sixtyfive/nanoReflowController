@@ -6,11 +6,11 @@
 #include "config.h"
 #include "globalDefs.h"
 
+// ----------------------------------------------------------------------------
 MAX6675 thermocouple(PIN_TC_CLK, PIN_TC_CS, PIN_TC_DO);
 
 void readThermocouple() {
   
-
   uint8_t lcdState = digitalState(PIN_LCD_CS);
   digitalHigh(PIN_LCD_CS);
   digitalLow(PIN_TC_CS);
@@ -26,8 +26,8 @@ void readThermocouple() {
   }
   
 #ifdef SERIAL_VERBOSE
-       Serial.print("temp: ");
-       Serial.println(round(temperature));
+  Serial.print("temp: ");
+  Serial.println(round(temperature));
 #endif
   digitalHigh(PIN_TC_CS); 
 
@@ -35,6 +35,6 @@ void readThermocouple() {
   else digitalHigh(PIN_LCD_CS);
 
 }
+// ----------------------------------------------------------------------------
 
-
-#endif
+#endif // TEMPERATURE_H

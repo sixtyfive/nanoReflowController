@@ -1,13 +1,9 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
-// ----------------------------------------------------------------------------
-
 #include <Arduino.h>
 
-
 // ----------------------------------------------------------------------------
-// 
 
 class ScopedTimer {
 public:
@@ -43,10 +39,6 @@ long lpow(int base, int exponent) {
   }
   return result;
 }
-
-//double round(double x) {
-//    return (x >= 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
-//}
 
 // ----------------------------------------------------------------------------
 
@@ -141,16 +133,11 @@ void itostr(char *r, int16_t val, char *unit = NULL) {
 }
 
 // ---------------------------------------------------------------------------- 
-// crc8
-//
-// Copyright (c) 2002 Colin O'Flynn
-// Minor changes by M.Thomas 9/2004 
-// ----------------------------------------------------------------------------
+// Copyright (c) 2002 Colin O'Flynn (http://colinoflynn.com/?)
+// Minor changes by M. Thomas 9/2004 (???)
 
 #define CRC8INIT    0x00
-#define CRC8POLY    0x18              //0X18 = X^8+X^5+X^4+X^0
-
-// ----------------------------------------------------------------------------
+#define CRC8POLY    0x18  // 0X18 = X^8+X^5+X^4+X^0
 
 uint8_t crc8(uint8_t *data, uint16_t data_length) {
   uint8_t  b;
@@ -184,5 +171,7 @@ uint8_t crc8(uint8_t *data, uint16_t data_length) {
   
   return crc;
 }
+
+// ----------------------------------------------------------------------------
 
 #endif // HELPERS_H
