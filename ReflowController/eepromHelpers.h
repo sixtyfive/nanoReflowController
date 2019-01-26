@@ -6,7 +6,9 @@
 #include <EEPROM.h>
 
 // EEPROM offsets
+#ifdef WITH_FAN
 const uint16_t offsetFanSpeed   = maxProfiles * sizeof(Profile_t) + 1; // one byte
+#endif
 const uint16_t offsetProfileNum = maxProfiles * sizeof(Profile_t) + 2; // one byte
 const uint16_t offsetPidConfig  = maxProfiles * sizeof(Profile_t) + 3; // sizeof(PID_t)
 
@@ -22,6 +24,7 @@ bool loadPID() {
   return true;  
 }
 
+#ifdef WITH_FAN
 void saveFanSpeed() {
   EEPROM.write(offsetFanSpeed, (uint8_t)fanAssistSpeed & 0xff);
   delay(250);
@@ -30,6 +33,7 @@ void saveFanSpeed() {
 void loadFanSpeed() {
   fanAssistSpeed = EEPROM.read(offsetFanSpeed) & 0xff;
 }
+#endif
 
 void saveLastUsedProfile() {
   EEPROM.write(offsetProfileNum, (uint8_t)activeProfileId & 0xff);

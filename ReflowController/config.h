@@ -20,7 +20,7 @@ static const uint8_t PIN_LCD_RST  = 8;
 static const uint8_t LCD_ROTATION = 3; // 0/2 -> portrait, 1/3 -> landscape
 #define ST7735_CHIPSET ST7735_INITR_REDTAB // see list in PDQ_ST7735_config.h
 
-// Thermocouple----------------------------------------------------------------
+// Thermocouple ---------------------------------------------------------------
 static const uint8_t PIN_TC_CS   = A1;
 static const uint8_t PIN_TC_DO   = 12;
 static const uint8_t PIN_TC_CLK  = 13;
@@ -31,7 +31,9 @@ static const uint8_t TC_ERROR_TOLERANCE = 5; // allow for n consecutive errors d
 static const uint8_t PIN_HEATER = 3;
 
 // Fan ------------------------------------------------------------------------
+#ifdef WITH_FAN
 static const uint8_t PIN_FAN    = A0;
+#endif
 
 // Buzzer ---------------------------------------------------------------------
 static const uint8_t PIN_BEEPER = A5;
