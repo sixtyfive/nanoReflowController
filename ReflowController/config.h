@@ -31,8 +31,10 @@ static const uint8_t LCD_ROTATION = 3; // 0/2-> portrait, 1/3-> landscape
 static const uint8_t PIN_TC_CS   = A1;
 static const uint8_t PIN_TC_DO   = 12;
 static const uint8_t PIN_TC_CLK  = 13;
-static const uint8_t PIN_HEATER = 3; // 
-static const uint8_t PIN_FAN    = A0; // 
+static const uint8_t PIN_HEATER = 3; //
+#ifdef WITH_FAN
+static const uint8_t PIN_FAN    = A0; //
+#endif 
 static const uint8_t PIN_BEEPER = A5; // Beeper Out
 // --- encoder
 static const uint8_t PIN_ENC_A           = A2; // 
@@ -60,8 +62,9 @@ static const uint8_t DEFAULT_PEAK_TEPM        = 200;
 static const uint8_t DEFAULT_PEAK_DURATION    = 15;
 static const float DEFAULT_RAMP_UP_RATE       = 1.2; // degrees / second (keep it about 1/2 of maximum to prevent PID overshooting)
 static const float DEFAULT_RAMP_DOWN_RATE     = 2.0; // degrees / second
+#ifdef WITH_FAN
 static const uint8_t FACTORY_FAN_ASSIST_SPEED = 33;
-
+#endif
 
 /*
 Kp: Determines how aggressively the PID reacts to the current amount of error (Proportional) (double >=0)

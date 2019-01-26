@@ -80,8 +80,10 @@ void setupPins(void) {
 
 pinAsOutput(PIN_HEATER);
 digitalLow(PIN_HEATER); // off
+#ifdef WITH_FAN
 pinAsOutput(PIN_FAN);
 digitalHigh(PIN_FAN);
+#endif
 pinAsInputPullUp(PIN_ZX);
 pinAsOutput(PIN_TC_CS);
 pinAsOutput(PIN_LCD_CS);
@@ -95,7 +97,9 @@ pinAsOutput(PIN_TC_CS);
 void killRelayPins(void) {
 Timer1.stop();
 detachInterrupt(INT_ZX);
+#ifdef WITH_FAN
 digitalHigh(PIN_FAN);
+#endif
 digitalHigh(PIN_HEATER);
 //PORTD |= (1 << PIN_HEATER) | (1 << PIN_FAN); // off
 }
@@ -106,7 +110,9 @@ digitalHigh(PIN_HEATER);
 
 #define CHANNELS       2
 #define CHANNEL_HEATER 0
+#ifdef WITH_FAN
 #define CHANNEL_FAN    1
+#endif
 
 typedef struct Channel_s {
   volatile uint8_t target; // percentage of on-time
@@ -118,9 +124,11 @@ typedef struct Channel_s {
 
 Channel_t Channels[CHANNELS] = {
   // heater
-  { 0, 0, 0, false, PIN_HEATER }, 
+  { 0, 0, 0, false, PIN_HEATER },
+#ifdef WITH_FAN
   // fan
   { 0, 0, 0, false, PIN_FAN } 
+#endif
 };
 
 // delay to align relay activation with the actual zero crossing
@@ -179,6 +187,7 @@ void zeroCrossingIsr(void) {
 void timerIsr(void) { // ticks with 100µS
   static uint32_t lastTicks = 0;
 
+#ifdef WITH_FAN
   // phase control for the fan 
   if (++phaseCounter > 90) {
     phaseCounter = 0;
@@ -190,6 +199,7 @@ void timerIsr(void) { // ticks with 100µS
   else {
     digitalHigh(Channels[CHANNEL_FAN].pin);
   }
+#endif
 
   // wave packet control for heater
   if (Channels[CHANNEL_HEATER].next > lastTicks // FIXME: this looses ticks when overflowing
@@ -261,7 +271,9 @@ void setup() {
     airTemp[i].temp = temperature;
   }
 
+#ifdef WITH_FAN
   loadFanSpeed();
+#endif
   loadPID();
 
   PID.SetOutputLimits(0, 100); // max output 100%
@@ -561,7 +573,9 @@ void loop(void)
           stateChanged = false;
           lastRampTicks = zeroCrossTicks;
           PID.SetControllerDirection(REVERSE);
+#ifdef WITH_FAN
           PID.SetTunings(fanPID.Kp, fanPID.Ki, fanPID.Kd);
+#endif
           Setpoint = activeProfile.peakTemp - 15; // get it all going with a bit of a kick! v sluggish here otherwise, too hot too long
 #ifdef WITH_BEEPER
             tone(PIN_BEEPER,BEEP_FREQ,3000);  // Beep as a reminder that CoolDown starts (and maybe open up the oven door for fast enough cooldown)
@@ -582,7 +596,9 @@ void loop(void)
         if (stateChanged) {
           stateChanged = false;
           PID.SetControllerDirection(REVERSE);
+#ifdef WITH_FAN
           PID.SetTunings(fanPID.Kp, fanPID.Ki, fanPID.Kd);
+#endif
           Setpoint = idleTemp;
 
         }
@@ -651,21 +667,29 @@ void loop(void)
       && currentState != Edit)
   {
     heaterValue = Output;
+#ifdef WITH_FAN
     fanValue = fanAssistSpeed;
+#endif
   } 
   else {
     heaterValue = 0;
+#ifdef WITH_FAN
     fanValue = Output;
+#endif
   }
 #else
   heaterValue = Output;
+#ifdef WITH_FAN
   fanValue = fanAssistSpeed;
+#endif
 #endif
 
   Channels[CHANNEL_HEATER].target = heaterValue;
 
+#ifdef WITH_FAN
   double fanTmp = 90.0 / 100.0 * fanValue; // 0-100% -> 0-90° phase control
   Channels[CHANNEL_FAN].target = 90 - (uint8_t)fanTmp;
+#endif
 }
 
 

@@ -26,7 +26,9 @@ double Setpoint;
 double Input;
 double Output;
 
+#ifdef WITH_FAN
 uint8_t fanValue;
+#endif
 uint8_t heaterValue;
 double rampRate = 0;
 
@@ -39,14 +41,18 @@ typedef struct {
 
 PID_t heaterPID = { FACTORY_KP, FACTORY_KI,  FACTORY_KD };
 //PID_t heaterPID = { 4.00, 0.05,  2.00 };
+#ifdef WITH_FAN
 PID_t fanPID    = { 1.00, 0.00, 0.00 };
+#endif
 
 int idleTemp = 50; // the temperature at which to consider the oven safe to leave to cool naturally
 uint32_t startCycleZeroCrossTicks;
 volatile uint32_t zeroCrossTicks = 0;
 char buf[20]; // generic char buffer
 
+#ifdef WITH_FAN
 int fanAssistSpeed = 33; // default fan speed
+#endif
 
 // ----------------------------------------------------------------------------
 // state machine
