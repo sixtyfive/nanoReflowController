@@ -1,6 +1,5 @@
 Reflow Oven Controller
-====================
-
+======================
 
 **News**
 
@@ -22,13 +21,15 @@ Reflow Oven Controller
 * *Please Note*: Requires Arduino IDE 1.5.x or newer
 
 (c) 2017 David Sanz Kirbis
+
 (c) 2014 Karl Pitrich <karl@pitrich.com>
-in part based on a project (c) 2013 Ed Simmons <ed@estechnical.co.uk>
 
-## Warning: This project operates with possibly lethal mains voltage. If you are unsure what to do, don't do it and get help from an experienced tinkerer with professional training.
+In part based on a project of (c) 2013 Ed Simmons <ed@estechnical.co.uk>
 
+**Warning: This project operates with possibly lethal mains voltage. If you are unsure what to do, don't do it and get help from an experienced tinkerer with professional training.**
 
-
+Pictures!
+=========
 
 **Minimal build**
 
@@ -45,62 +46,9 @@ in part based on a project (c) 2013 Ed Simmons <ed@estechnical.co.uk>
 (more info: [Halogen Floodlight SMT reflow])
 
 ![Floodlight]
---------------
-
-
-
-<!---
-**Post action shot**
-
-![CycleWithOverflow] | ![Warning]
------------- | -------------
-
-Introduction
-====================
-
-This Reflow Oven Controller relies on an [Arduino Nano] easily obtainable on eb*y for less than $10, plus my custom shield, which is actually more like a motherboard.
-
-As I believe it is not wise to have a mess of wiring and tiny breakout-boards for operating mains powered equipment, I've decided to design custom board with easily obtainable components.
-
-The hardware can be found in the [folder hardware], including the Eagle schematics and PCB layout files. It should fit the freemium version of Eagle. Here are preview images:
-
-![PCB][ImgPCB]
-![Schematic][ImgSCH]
-
-The board contains the [Arduino Nano], very simple [Zero crossing] detection circuit, used to align control logic to mains frequency, two [MAX31855] thermocouple-to-digital converters and two [Sharp S202S01] PCB-mount solid state relays, mounted on cheap [Fischer SK409 50,8] heat sinks. The current software uses only one of the thermocouples, so you need to populate one IC only. If you're lucky, you can get free samples of the MAX31855 from Maxim.
-
-The software uses [PID] control of the heater and fan output for improved temperature stability. The heater AC load is controlled using [Wave Packet] control in order to minimize RF interference and load on the relay. For the fan motor, [Phase Fired] control has been implemented.
-
-Please note that all important timings are *based on the mains frequency*, so the circuit will **not work** properly without mains connection.
-
-But for testing, I've added an additional timer to simulate the zero-crossings, in order to run the software without being connected to mains. The software should work in 50 and 60Hz mains, the 60Hz version is not tested, though.
-
-Errata and construction infos
-========
-
-Issue | Notes
------------- | -------------
-
-
-
-Screenshots and usage information
-========
-
-Image | Information
------------- | -------------
-![CycleWithOverflow] | *Display after a cylcle has been completed. The blue line is the setpoint, the red line the actual temperature measured by the thermocouple. Note that the graph wraps around automatically. 'Sp' is the current setpoint calculated by the PID loop. In the lower line there are: Current heater and fan outputs, both in percent, and the current temperature rise or drop rate in °C per second. The graph will draw orientation lines every 50°C up to the peak temperature set in the selected profile.*
-![MenuDefault] | *The main menu can be navigated by rotating the encoder (sic!). Clicking enters the menu item, or navigates to the submenu. Doubleclick moves up or back or exits the menu item.*
-![FanSpeedEdit] | *To edit a setting, click once to enter edit mode (red cursor), then rotate to change the value, click again to save. Doubleclick will exit without saving.*
-![MenuEditProfile] | -
-![ProfileSettings] | *Typical solder profile settings...*
-![ProfileSettingsEdit] | *These parameters can be easily edited using the encoder as described above.*
-![MenuLoadProfile] | *Up to 30 Profiles can be loaded and saved. You have to do this manually, so that you can have 'save-as' functionality without overwriting existing profiles.*
-![PIDValues] | *Current pid values for my 1300W 20$ toaster oven.*
-![PIDValuesEdit] | *Editing is simple, like above. Note that, unlike with the profile settings, the PID values will be automatically stored to EEPROM when you exit the submenu by doubleclicking.*
---->
 
 Obtaining the source code
-====================
+=========================
 
 Get the code using `git`.
 
@@ -108,15 +56,16 @@ Get the code using `git`.
 
 or [download a Snapshot].
 
-I've added some libraries I've used as submodules to the git repositroy, so it is important that, after cloning this repository, you do 
+The following dependencies will have to be installed:
 
-    git submodule update --init
-
-to fetch all involved libraries. (See: [Submodule Cheat Sheet])
-
+* PID >= 1.2.0 (available through the Arduino IDE or from https://github.com/br3ttb/Arduino-PID-Library/)
+* PDQ_GFX_Libs (clone to your Arduino libraries folder from https://github.com/XarkLabs/PDQ_GFX_Libs/, then, also there, `ln -s PDQ_GFX_Libs/PDQ_GFX/ .; ln -s PDQ_GFX_Libs/PDQ_ST7735/ .`
+* 0xPIT's menu and encoder libraries (clone like above from https://github.com/0xPIT/Menu and https://github.com/0xPIT/encoder, respectively)
+* TimerOne >= 1.1.0 (available through the Arduino IDE or from https://code.google.com/archive/p/arduino-timerone/)
+* MAX6675 (available through the Arduino IDE or from https://github.com/adafruit/MAX6675-library)
 
 Installation
-====================
+============
 
 Of course, you need to have the Arduino IDE installed. I've worked with version 1.5.x only and I will not support older versions. Get it from the [Arduino Download] page or upgrade you current Arduino setup.
 
@@ -125,50 +74,15 @@ There as several dependencies you need to install.
 If you are unfamiliar with Arduino Libraries, please read [the library guide].
 Basically, each library needs to be liked or copied into your Arduino library folder.
 
-<!---
-My code uses [TimerOne] for basic timing, for the 1.8" TFT I've used [Adafruit_ST7735], which requires [Adafruit_GFX]. I **strongly suggest** to use my **modified version** of [Adafruit_ST7735-pit], as it **performs much better**, but requires you to use SPI, which my board does anyway.
-
-For the user interface you require my own [Menu] and [ClickEncoder] libraries, which are included as submodules.
-
-All other libraries need to be downloaded and installed.
-
-After you've installed all libraries, open the Arduino IDE, open the ReflowController.pde sketch (using File->Open).
-
-Select the right hardware from the Tools->Board menu.
-
-Compile the firmware (Sketch->Verify) to test everything is installed correctly. If something's wrong, feel free to post an issue here on github, I will look into it.
-
-Now, choose the correct serial port from Tools->Serial Port and then upload the code.
-*Remember* that a standard compile will get stuck at "Calibrating..." without proper mains connection, so that zero crossing interrupts can occur.
-
-I could not fit PID Autotuning into the limited space of the Arduino in addition the normal code. So if you want to try to autotune you PID Loop, install the [PID_AutoTune] Library, `#define PIDTUNE 1` in the .ino file, then recompile and download do the Arduino.
-
-As all timing relies on Zero Crossing detection, you need to `#define FAKE_HW 1` and install [TimerThree] when you want to run without actual hardware *and/or* without mains connection.
-
-
 Things to note
-====================
+==============
 
-* The [MAX31855] does not like the thermocouple being grounded; It must be isolated from ground or earth.
 * The PID Loop must be tuned individually for each oven. It will *not* work out of the box. 
 * [PID Autotune] is not very useful, as it seems to be able to tune only to keep a specific temperature value, which is not what we do in a reflow oven. Also, at least my oven seems to be very non-linear when heating up.
-* When rewiring inside your oven, use only wiring that can withstand high temperatures. I use silicone coated lace.
-* Do not solder wiring inside you oven, the temperature might desolder you joints. **Crimp everything.**
 * Use proper earth ground connection for your ovens chassis.
 
-Ideas and todo
-====================
-* Optimize code size so that more features can fit
-* Clamp values for parameters to reasonalbe ranges
-* Add scrollbar (sample implementation in the demo for [Menu]
-* Separate PID configuration for each process step
-* try to make the display faster, it is very slow
-* Named profiles
-* Rewrite [Menu] so that is uses callback objects instead of spaghetti-callbacks
---->
-
 Licensing
-====================
+=========
 ```
 The MIT License (MIT)
 
@@ -193,7 +107,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
-
 
 [PID Autotune]:https://github.com/br3ttb/Arduino-PID-AutoTune-Library
 [Submodule Cheat Sheet]:http://blog.jacius.info/git-submodule-cheat-sheet/
@@ -230,8 +143,8 @@ THE SOFTWARE.
 [ProfileSettingsEdit]:https://raw.githubusercontent.com/0xPIT/reflowOvenController/master/images/ProfileSettingsEdit.jpg
 
 [Warning]:http://www.proshieldsafetysigns.co.uk/signs/59793_signs.jpg
-[ImgPCB]:https://raw.githubusercontent.com/0xPIT/reflowOvenController/master/hardware/v0.2.brd.preview.png
-[ImgSCH]:https://raw.githubusercontent.com/0xPIT/reflowOvenController/master/hardware/v0.2.sch.preview.png
+[ImgPCB]:https://raw.githubusercontent.com/0xPIT/reflowOvenController/master/images/v0.2.brd.preview.png
+[ImgSCH]:https://raw.githubusercontent.com/0xPIT/reflowOvenController/master/images/v0.2.sch.preview.png
 
 [ImgMissingTrace]:https://raw.githubusercontent.com/0xPIT/reflowOvenController/master/images/MissingTrace.jpg
 [BoardPic1]:https://raw.githubusercontent.com/dasaki/nanoReflowController/master/images/v1_0_Board_picture_top.jpg
