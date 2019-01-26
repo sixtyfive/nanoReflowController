@@ -228,6 +228,8 @@ void abortWithError(int error) {
 // ----------------------------------------------------------------------------
 
 void setup() {
+  MCUSR = 0;  // clear out any flags of prior resets.
+  
 #ifdef SERIAL_VERBOSE
   Serial.begin(115200);
   Serial.println("Reflow controller started");
@@ -419,48 +421,48 @@ void loop(void)
   if (zeroCrossTicks - lastUpdate >= TICKS_PER_UPDATE) {
     uint32_t deltaT = zeroCrossTicks - lastUpdate;
     lastUpdate = zeroCrossTicks;
+    ACSidePowered = true;
 
     readThermocouple(); // should be sufficient to read it every 250ms or 500ms   
 
     if (tcStat > 0) {
       thermocoupleErrorCount++;
-       if ((thermocoupleErrorCount > TC_ERROR_TOLERANCE) && (currentState != Edit)) {
+      if ((thermocoupleErrorCount > TC_ERROR_TOLERANCE) && (currentState != Edit)) {
         abortWithError(tcStat);
       } else thermocoupleErrorCount = 0;
-    }
-    else {
-        thermocoupleErrorCount = 0;
+    } else {
+      thermocoupleErrorCount = 0;
 
-        // rolling average of the temp T1 and T2
-        totalT1 -= readingsT1[index];            // subtract the last reading
-        readingsT1[index] = temperature;
-        totalT1 += readingsT1[index];            // add the reading to the total
-        index = (index + 1) % NUM_TEMP_READINGS; // next position
-        averageT1 = totalT1 / (float)NUM_TEMP_READINGS;  // calculate the average temp
-    
-        // need to keep track of a few past readings in order to work out rate of rise
-        for (int i = 1; i < NUM_TEMP_READINGS; i++) { // iterate over all previous entries, moving them backwards one index
-          airTemp[i - 1].temp = airTemp[i].temp;
-          airTemp[i - 1].ticks = airTemp[i].ticks;     
-        }
-    
-        airTemp[NUM_TEMP_READINGS - 1].temp = averageT1; // update the last index with the newest average
-        airTemp[NUM_TEMP_READINGS - 1].ticks = (uint16_t)deltaT;
-    
-        // calculate rate of temperature change
-        uint32_t collectTicks = 0;
-        for (int i = 0; i < NUM_TEMP_READINGS; i++) {
-          collectTicks += airTemp[i].ticks;
-        }
-        float tempDiff = (airTemp[NUM_TEMP_READINGS - 1].temp - airTemp[0].temp);
-        float timeDiff = collectTicks / (float)(TICKS_PER_SEC);
-        
-        rampRate = tempDiff / timeDiff;
-     
-        Input = airTemp[NUM_TEMP_READINGS - 1].temp; // update the variable the PID reads
-           
+      // rolling average of the temp T1 and T2
+      totalT1 -= readingsT1[index];            // subtract the last reading
+      readingsT1[index] = temperature;
+      totalT1 += readingsT1[index];            // add the reading to the total
+      index = (index + 1) % NUM_TEMP_READINGS; // next position
+      averageT1 = totalT1 / (float)NUM_TEMP_READINGS;  // calculate the average temp
+  
+      // need to keep track of a few past readings in order to work out rate of rise
+      for (int i = 1; i < NUM_TEMP_READINGS; i++) { // iterate over all previous entries, moving them backwards one index
+        airTemp[i - 1].temp = airTemp[i].temp;
+        airTemp[i - 1].ticks = airTemp[i].ticks;     
+      }
+  
+      airTemp[NUM_TEMP_READINGS - 1].temp = averageT1; // update the last index with the newest average
+      airTemp[NUM_TEMP_READINGS - 1].ticks = (uint16_t)deltaT;
+  
+      // calculate rate of temperature change
+      uint32_t collectTicks = 0;
+      for (int i = 0; i < NUM_TEMP_READINGS; i++) {
+        collectTicks += airTemp[i].ticks;
+      }
+      float tempDiff = (airTemp[NUM_TEMP_READINGS - 1].temp - airTemp[0].temp);
+      float timeDiff = collectTicks / (float)(TICKS_PER_SEC);
+      
+      rampRate = tempDiff / timeDiff;
+   
+      Input = airTemp[NUM_TEMP_READINGS - 1].temp; // update the variable the PID reads
+         
 #ifdef SERIAL_VERBOSE
-       Serial.write((uint8_t)Input);
+     Serial.write((uint8_t)Input);
 #endif
     }
     
@@ -469,8 +471,9 @@ void loop(void)
       lastDisplayUpdate = zeroCrossTicks;
       if (currentState > UIMenuEnd) {
         updateProcessDisplay();
+      } else { 
+        displayThermocoupleData(1, tft.height()-16);
       }
-      else displayThermocoupleData(1, tft.height()-16);
     }
 
     switch (currentState) {

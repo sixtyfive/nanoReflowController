@@ -2,6 +2,7 @@
 #define HELPERS_H
 
 #include <Arduino.h>
+#include <avr/wdt.h>
 
 // ----------------------------------------------------------------------------
 
@@ -170,6 +171,16 @@ uint8_t crc8(uint8_t *data, uint16_t data_length) {
   }
   
   return crc;
+}
+
+// ----------------------------------------------------------------------------
+// https://arduino.stackexchange.com/questions/1477/reset-an-arduino-uno-in-code
+
+void resetFunc() {
+  wdt_enable(WDTO_15MS); // turn on the WatchDog and don't stroke it.
+  for(;;) { 
+    // do nothing and wait for the inevitable...
+  } 
 }
 
 // ----------------------------------------------------------------------------

@@ -10,8 +10,11 @@
 #include "eepromHelpers.h"
 #include "config.h"
 
-#define MENU_TEXT_XPOS 5
-#define MENU_BAR_XPOS 3
+#define MENU_TEXT_XPOS  5
+#define MENU_TEXT_YPOS  2
+#define MENU_BAR_XPOS   3
+#define MESSAGE_XPOS   10
+
 #define TEMPERATURE_WINDOW 1.2  // n times the profile's maximum temperature
 
 // LCD ------------------------------------------------------------------------
@@ -108,7 +111,9 @@ void setupTFT() {
 void displaySplash() {
   tft.fillScreen(ST7735_WHITE);     
   tft.setTextColor(ST7735_BLACK);
-  
+
+  tft.setCursor(2, 20);
+  tft.print("nano");
   tft.setCursor(2, 30);
   tft.setTextSize(2);
   tft.print("Reflow");
@@ -118,9 +123,9 @@ void displaySplash() {
   tft.setCursor(52, 67);
   tft.print("v"); tft.print(ver);
   
-  tft.setCursor(0, 109);
+  tft.setCursor(2, 107);
   tft.print("(c)2014 0xPIT");
-  tft.setCursor(0, 119);
+  tft.setCursor(2, 117);
   tft.print("(c)2017 Dasaki");
   
   delay(3000);
@@ -133,39 +138,37 @@ void displayError(int error) {
   tft.setTextColor(ST7735_WHITE, ST7735_RED);
   tft.fillScreen(ST7735_RED);
 
-  tft.setCursor(10, 10);
+  tft.setCursor(MESSAGE_XPOS, 10);
   
   if (error < 9) {
-    tft.println("Thermocouple Error");
-    tft.setCursor(10, 30);
+    tft.println("Thermocouple error!");
+    tft.setCursor(MESSAGE_XPOS, 30);
     switch (error) {
       case 0b001:
-        tft.println("Open Circuit");
+        tft.println("Open circuit!");
         break;
       case 0b010:
-        tft.println("GND Short");
+        tft.println("GND short!");
         break;
       case 0b100:
-        tft.println("VCC Short");
+        tft.println("VCC short!");
         break;
     }
-    tft.setCursor(10, 60);
+    tft.setCursor(MESSAGE_XPOS, 60);
     tft.println("Power off,");
-    tft.setCursor(10, 75);
-    tft.println("check connections");
+    tft.setCursor(MESSAGE_XPOS, 75);
+    tft.println("check connections!");
   }
   else {
-    tft.println("Temperature"); 
-    tft.setCursor(10, 30);
-    tft.println("following error");
-    tft.setCursor(10, 45);
+    tft.println("Temperature error");
+    tft.setCursor(MESSAGE_XPOS, 45);
     tft.print("during ");
     tft.println((error == 10) ? "heating" : "cooling");
   }
   #ifdef WITH_BEEPER
-    tone(PIN_BEEPER,BEEP_FREQ,2000);  //Error Beep
+    tone(PIN_BEEPER,BEEP_FREQ, 2000); // error beep
   #endif
-  while (1) { //  stop
+  while (1) { // stop
     ;
   }
 }
@@ -234,15 +237,15 @@ void getItemValuePointer(const Menu::Item_t *mi, double **d, int16_t **i) {
   if (mi == &miRampUpRate)  *d = &activeProfile.rampUpRate;
   if (mi == &miRampDnRate)  *d = &activeProfile.rampDownRate;
   if (mi == &miSoakTime)    *i = &activeProfile.soakDuration;
-  if (mi == &miSoakTempA)    *i = &activeProfile.soakTempA;
-  if (mi == &miSoakTempB)    *i = &activeProfile.soakTempB;
+  if (mi == &miSoakTempA)   *i = &activeProfile.soakTempA;
+  if (mi == &miSoakTempB)   *i = &activeProfile.soakTempB;
   if (mi == &miPeakTime)    *i = &activeProfile.peakDuration;
   if (mi == &miPeakTemp)    *i = &activeProfile.peakTemp;
   if (mi == &miPIDSettingP) *d = &heaterPID.Kp;
   if (mi == &miPIDSettingI) *d = &heaterPID.Ki;
   if (mi == &miPIDSettingD) *d = &heaterPID.Kd;
 #ifdef WITH_FAN
-  if (mi == &miFanSettings) *i = &fanAssistSpeed;
+  if (mi == &miFanSpeed)    *i = &fanAssistSpeed;
 #endif
 }
 
@@ -275,24 +278,25 @@ bool getItemValueLabel(const Menu::Item_t *mi, char *label) {
     if (isRampSetting(mi)) {
       while(*p != '\0') p++;
       *p++ = 0xf7; *p++ = 'C'; *p++ = '/'; *p++ = 's';
+      *p++ = ' '; *p++ = ' ';
       *p = '\0';
     }
   }
   else {
-    if (mi == &miPeakTemp || mi == &miSoakTempA || mi == &miSoakTempB ) {
-      itostr(label, *iValue, "\367C");
+    if (mi == &miPeakTemp || mi == &miSoakTempA || mi == &miSoakTempB) {
+      itostr(label, *iValue, "\367C   ");
     }
     if (mi == &miPeakTime || mi == &miSoakTime) {
-      itostr(label, *iValue, "s");
+      itostr(label, *iValue, "s   ");
     }
 #ifdef WITH_FAN
-    if (mi == &miFanSettings) {
-      itostr(label, *iValue, "%");
+    if (mi == &miFanSpeed) {
+      itostr(label, *iValue, "%   ");
     }
 #endif
   }
 
-  return dValue || iValue;
+  return (dValue || iValue);
 }
 
 // ----------------------------------------------------------------------------
@@ -305,14 +309,14 @@ bool menu_editNumericalValue(const Menu::Action_t action) {
     tft.setTextSize(1);
     if (initial) {
       tft.setTextColor(ST7735_BLACK, ST7735_WHITE);
-      tft.setCursor(MENU_TEXT_XPOS, 80);
-      tft.print("Edit & click to save.");
+      tft.setCursor(MENU_TEXT_XPOS, 94);
+      tft.print("Edit & click to save"); // no full stop as it was too far right on 1.44" displays
       Encoder.setAccelerationEnabled(true);
     }
 
     for (uint8_t i = 0; i < menuItemsVisible; i++) {
       if (currentlyRenderedItems[i].mi == MenuEngine.currentItem) {
-        uint8_t y = currentlyRenderedItems[i].pos * menuItemHeight + 2;
+        uint8_t y = currentlyRenderedItems[i].pos * menuItemHeight + 2 + MENU_TEXT_YPOS;
 
         if (initial) {
           tft.fillRect(59+MENU_TEXT_XPOS, y - 1, 60, menuItemHeight - 2, ST7735_RED);
@@ -359,18 +363,18 @@ bool menu_editNumericalValue(const Menu::Action_t action) {
     menuUpdateRequest = true;
     MenuEngine.lastInvokedItem = &Menu::NullItem;
 
-
     if (currentState == Edit) { // leave edit mode, return to menu
       if (isPidSetting(MenuEngine.currentItem)) {
         savePID();
       }
 #ifdef WITH_FAN
-      else if (MenuEngine.currentItem == &miFanSettings) {
-        saveFanSettings();
+      else if (MenuEngine.currentItem == &miFanSpeed) {
+        saveFanSpeed();
       }
 #endif
-      // don't autosave profile, so that one can do "save as" without overwriting the current profile
 
+      // don't autosave profile, so that one can do "save as" without overwriting the current profile
+      
       currentState = Settings;
       Encoder.setAccelerationEnabled(false);
       return false;
@@ -389,7 +393,7 @@ void factoryReset() {
   tft.fillScreen(ST7735_BLUE);
   tft.setTextColor(ST7735_YELLOW);
   tft.setTextSize(1);
-  tft.setCursor(10, 50);
+  tft.setCursor(MESSAGE_XPOS, 50);
   tft.print("Resetting...");
 
   // then save the same profile settings into all slots
@@ -412,7 +416,8 @@ void factoryReset() {
   activeProfileId = 0;
   saveLastUsedProfile();
 
-  delay(500);
+  delay(250);
+  resetFunc(); // TODO: figure out why it never got back into the menu otherwise...
 #endif // PIDTUNE
 }
 
@@ -427,10 +432,10 @@ bool menu_factoryReset(const Menu::Action_t action) {
     if (initial) { // TODO: add eyecandy: colors or icons
       tft.setTextColor(ST7735_BLACK, ST7735_WHITE);
       tft.setTextSize(1);
-      tft.setCursor(10, tft.height()-38);
+      tft.setCursor(MESSAGE_XPOS, tft.height()-38);
       tft.print("Click to confirm");
-      tft.setCursor(10, tft.height()-28);
-      tft.print("Doubleclick to exit");
+      tft.setCursor(MESSAGE_XPOS, tft.height()-28);
+      tft.print("or remove power!"); // Doubleclick isn't working...
     }
   }
 
@@ -442,6 +447,7 @@ bool menu_factoryReset(const Menu::Action_t action) {
     return false;
   }
 
+  /* TODO: figure out WHY it's not working...
   if (action == Menu::actionParent) {
     // leave edit mode only, returning to menu
     if (currentState == Edit) {
@@ -449,7 +455,7 @@ bool menu_factoryReset(const Menu::Action_t action) {
       clearLastMenuItemRenderState();
       return false;
     }
-  }
+  }*/
 #endif // PIDTUNE
 }
 
@@ -459,10 +465,22 @@ void memoryFeedbackScreen(uint8_t profileId, bool loading) {
   tft.fillScreen(ST7735_GREEN);
   tft.setTextSize(1);
   tft.setTextColor(ST7735_BLACK);
-  tft.setCursor(10, 50);
+  tft.setCursor(MESSAGE_XPOS, 50);
   tft.print(loading ? "Loading" : "Saving");
   tft.print(" profile ");
   tft.print(profileId);  
+}
+
+// ----------------------------------------------------------------------------
+
+void ACPowerWarningScreen() {
+  tft.fillScreen(ST7735_YELLOW);
+  tft.setTextSize(1);
+  tft.setTextColor(ST7735_BLACK);
+  tft.setCursor(MESSAGE_XPOS, 50);
+  tft.println("Can't start cycle,");
+  tft.print("  no power attached!");
+  delay(500);
 }
 
 // ----------------------------------------------------------------------------
@@ -495,16 +513,16 @@ bool menu_saveLoadProfile(const Menu::Action_t action) {
     tft.setTextColor(ST7735_BLACK, ST7735_WHITE);
     tft.setTextSize(1);
 
-    if (initial) {
+    /*if (initial) { // TODO: Figure out why the doubleclick is not being accepted here as well???
       encAbsolute = activeProfileId;      
-      tft.setCursor(10, 90);
+      tft.setCursor(MESSAGE_XPOS, 90);
       tft.print("Doubleclick to exit");
-    }
+    }*/
 
     if (encAbsolute > maxProfiles) encAbsolute = maxProfiles;
     if (encAbsolute <  0) encAbsolute =  0;
 
-    tft.setCursor(10, 80);
+    tft.setCursor(MESSAGE_XPOS, 98);
     tft.print("Click to ");
     tft.print((isLoad) ? "load " : "save ");
     tft.setTextColor(ST7735_WHITE, ST7735_RED);
@@ -519,8 +537,7 @@ bool menu_saveLoadProfile(const Menu::Action_t action) {
   }
 
   if (action == Menu::actionParent) {    
-    // leave edit mode only, returning to menu
-    if (currentState == Edit) {
+    if (currentState == Edit) { // leave edit mode only, returning to menu
       currentState = Settings;
       clearLastMenuItemRenderState();
       return false;
@@ -535,18 +552,25 @@ void toggleAutoTune();
 
 bool menu_cycleStart(const Menu::Action_t action) {
   if (action == Menu::actionDisplay) {
-    startCycleZeroCrossTicks = zeroCrossTicks;
-    menuExit(action);
-
-#ifdef PIDTUNE    
-    toggleAutoTune();
-#else
-    currentState = RampToSoak;
-#endif
-    initialProcessDisplay = false;
-    menuUpdateRequest = false;
+    if (ACSidePowered) {
+      startCycleZeroCrossTicks = zeroCrossTicks;
+      menuExit(action);
+  
+  #ifdef PIDTUNE    
+      toggleAutoTune();
+  #else
+      currentState = RampToSoak;
+  #endif
+      initialProcessDisplay = false;
+      menuUpdateRequest = false;
+    } else {
+      ACPowerWarningScreen();
+      menuExit(Menu::actionDisplay); // reset to initial state
+      MenuEngine.navigate(&miCycleStart);
+      currentState = Settings;
+      menuUpdateRequest = true;
+    }
   }
-
   return true;
 }
 
@@ -554,7 +578,7 @@ bool menu_cycleStart(const Menu::Action_t action) {
 
 void renderMenuItem(const Menu::Item_t *mi, uint8_t pos) {
   bool isCurrent = MenuEngine.currentItem == mi;
-  uint8_t y = pos * menuItemHeight + 2;
+  uint8_t y = MENU_TEXT_YPOS + pos * menuItemHeight + 2;
 
   if ( currentlyRenderedItems[pos].mi      == mi 
     && currentlyRenderedItems[pos].pos     == pos 
@@ -612,9 +636,10 @@ MenuItem(miPIDSettings,  "PID Settings",  miFactoryReset, miFanSpeed,     miExit
 MenuItem(miSaveProfile,  "Save Profile",  miPIDSettings,  miLoadProfile,  miExit,         Menu::NullItem, menu_saveLoadProfile   );
 MenuItem(miPIDSettings,  "P/I/D Values",  miFactoryReset, miSaveProfile,  miExit,         miPIDSettingP,  menuDummy              );
 #endif
-  MenuItem(miPIDSettingP,  "Kp (P)",      miPIDSettingI,  Menu::NullItem, miPIDSettings,  Menu::NullItem, menu_editNumericalValue);
-  MenuItem(miPIDSettingI,  "Ki (I)",      miPIDSettingD,  miPIDSettingP,  miPIDSettings,  Menu::NullItem, menu_editNumericalValue);
-  MenuItem(miPIDSettingD,  "Kd (D)",      Menu::NullItem, miPIDSettingI,  miPIDSettings,  Menu::NullItem, menu_editNumericalValue);
+  // TODO: instead of hacking the spaces here, make display of current values more robust so that they're at same x as the edit field...
+  MenuItem(miPIDSettingP,  "Kp (P)   ",   miPIDSettingI,  Menu::NullItem, miPIDSettings,  Menu::NullItem, menu_editNumericalValue);
+  MenuItem(miPIDSettingI,  "Ki (I)   ",   miPIDSettingD,  miPIDSettingP,  miPIDSettings,  Menu::NullItem, menu_editNumericalValue);
+  MenuItem(miPIDSettingD,  "Kd (D)   ",   Menu::NullItem, miPIDSettingI,  miPIDSettings,  Menu::NullItem, menu_editNumericalValue);
 MenuItem(miFactoryReset, "Factory Reset", Menu::NullItem, miPIDSettings,  miExit,         Menu::NullItem, menu_factoryReset      );
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -622,7 +647,7 @@ void drawInitialProcessDisplay()
 {
   const uint8_t h =  tft.height()-42;
   const uint8_t w = tft.width()-24;
-  const uint8_t yOffset =  30; // space not available for graph  
+  const uint8_t yOffset = 30; // space not available for graph  
   double tmp;
   initialProcessDisplay = true;
 
@@ -677,9 +702,9 @@ void drawInitialProcessDisplay()
 // ----------------------------------------------------------------------------
 
 void updateProcessDisplay() {
-  const uint8_t h =  tft.height()-42;
-  const uint8_t w = tft.width()-24;
-  const uint8_t yOffset =  30; // space not available for graph  
+  const uint8_t h = tft.height() - 42; // the answer to everything!
+  const uint8_t w = tft.width()  - 24;
+  const uint8_t yOffset = 30; // space not available for graph  
 
   uint16_t dx, dy;
   uint8_t y = 2;
@@ -709,7 +734,7 @@ void updateProcessDisplay() {
 #ifndef PIDTUNE
   // current state
   y -= 2;
-  tft.setCursor(tft.width()-65, y);
+  tft.setCursor(tft.width()-62, y);
   tft.setTextColor(ST7735_BLACK, ST7735_GREEN);
   
   switch (currentState) {
@@ -726,11 +751,11 @@ void updateProcessDisplay() {
   tft.print("        "); // lazy: fill up space
 
   tft.setTextColor(ST7735_BLACK, ST7735_WHITE);
-#endif // PIDTUNE
+#endif
 
   // set point
   y += 10;
-  tft.setCursor(tft.width()-65, y);
+  tft.setCursor(tft.width()-62, y);
   tft.print("Sp:"); 
   alignRightPrefix((int)Setpoint); 
   printDouble(Setpoint);
@@ -743,8 +768,8 @@ void updateProcessDisplay() {
   }
 
   do { // x with wrap around
-    dx = (uint16_t)((elapsed - xOffset) * pxPerSec);
     
+    dx = (uint16_t)((elapsed - xOffset) * pxPerSec);
     if (dx > w) {
       xOffset = elapsed;
     }
@@ -761,7 +786,8 @@ void updateProcessDisplay() {
   // bottom line
   y = 119;
 
-  // set values
+  // set current values
+  
   tft.setCursor(1, y);
   tft.print("\xef");
   alignRightPrefix((int)heaterValue); 
@@ -777,7 +803,7 @@ void updateProcessDisplay() {
 
   tft.print(" \x12 "); // alternative: \x7f
   printDouble(rampRate);
-  tft.print("\367C/s    ");
+  tft.print("\367C/s    "); 
 }
 
 // ----------------------------------------------------------------------------
