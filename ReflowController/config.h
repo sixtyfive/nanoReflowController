@@ -19,25 +19,31 @@ static const uint8_t PIN_LCD_DC   = 9;
 static const uint8_t PIN_LCD_RST  = 8;
 static const uint8_t LCD_ROTATION = 3; // 0/2 -> portrait, 1/3 -> landscape
 #define ST7735_CHIPSET ST7735_INITR_REDTAB // see list in PDQ_ST7735_config.h
+
 // Thermocouple----------------------------------------------------------------
 static const uint8_t PIN_TC_CS   = A1;
 static const uint8_t PIN_TC_DO   = 12;
 static const uint8_t PIN_TC_CLK  = 13;
 static const uint8_t NUM_TEMP_READINGS  = 5;
 static const uint8_t TC_ERROR_TOLERANCE = 5; // allow for n consecutive errors due to noisy power supply before bailing out
+
 // Heater ---------------------------------------------------------------------
 static const uint8_t PIN_HEATER = 3;
+
 // Fan ------------------------------------------------------------------------
 static const uint8_t PIN_FAN    = A0;
+
 // Buzzer ---------------------------------------------------------------------
 static const uint8_t PIN_BEEPER = A5;
 static const uint16_t BEEP_FREQ = 1976; // B6 note
+
 // Encoder --------------------------------------------------------------------
 static const uint8_t PIN_ENC_A           = A2;
 static const uint8_t PIN_ENC_B           = A3;
 static const uint8_t PIN_ENC_BTN         = A4;
 static const uint8_t ENC_STEPS_PER_NOTCH = 4;
 static const boolean IS_ENC_ACTIVE       = false; // encoder module actively fed through VCC (seems to works badly if set to true)
+
 // Zero-X ---------------------------------------------------------------------
 static const uint8_t PIN_ZX = 2; // pin for zero crossing detector
 static const uint8_t INT_ZX = digitalPinToInterrupt(PIN_ZX); // interrupt for zero crossing detector
@@ -73,6 +79,13 @@ static const uint8_t FACTORY_FAN_ASSIST_SPEED = 33;  // %
 #define FACTORY_KP 1.75     // 1.75 // 4.00
 #define FACTORY_KI 0.03     // 0.03 // 0.05 
 #define FACTORY_KD 3.00     // 3.00 // 2.00
+
+// ----------------------------------------------------------------------------
+// allow the user to set their own configuration, which will not be committed to git
+#if __has_include("userdefs.h")
+#include "userdefs.h"
+#endif
+
 // ----------------------------------------------------------------------------
 
 #endif // CONFIG_H
