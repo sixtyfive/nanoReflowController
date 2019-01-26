@@ -88,6 +88,9 @@ Experimental method to tune PID:
 
 
 
-
+// allow the user to set their own configuration, which will not be committed to git
+#if __has_include("userdefs.h")
+#include "userdefs.h"
+#endif
 
 #endif // CONFIG_H
