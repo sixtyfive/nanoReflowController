@@ -1,5 +1,6 @@
 // ----------------------------------------------------------------------------
 // Reflow Oven Controller
+// Modified from 2018-2020 by J. R. Schmid <jrs@weitnahbei.de>
 // (c) 2017 Debugged and restructured by David Sanz Kirbis
 // (c) 2014 Karl Pitrich <karl@pitrich.com>
 // (c) 2012-2013 Ed Simmons
@@ -22,25 +23,23 @@
 #include "helpers.h"
 #include "UI.h"
 #include "globalDefs.h"
+#include "lid.h"
 
 #ifdef PIDTUNE
 #include <PID_AutoTune_v0.h>
 #endif
-// ----------------------------------------------------------------------------
+
 volatile uint32_t    timerTicks       = 0;
 volatile uint8_t     phaseCounter     = 0;
 static const uint8_t TIMER1_PERIOD_US = 100;
-// ----------------------------------------------------------------------------
+
 uint32_t lastUpdate        = 0;
 uint32_t lastDisplayUpdate = 0;
 State    previousState     = Idle;
 bool     stateChanged      = false;
 uint32_t stateChangedTicks = 0;
-// ----------------------------------------------------------------------------
-// PID
 
 PID PID(&Input, &Output, &Setpoint, heaterPID.Kp, heaterPID.Ki, heaterPID.Kd, DIRECT);
-
 #ifdef PIDTUNE
 PID_ATune PIDTune(&Input, &Output);
 
@@ -50,12 +49,6 @@ double aTuneStep       =  50,
 
 unsigned int aTuneLookBack = 30;
 #endif
-
-/*************************************/
-
-
-/*************************************/
-
 
 typedef struct {
   double temp;
@@ -72,38 +65,28 @@ double averageT1 = 0;           // the average
 uint8_t index = 0;              // the index of the current reading
 uint8_t thermocoupleErrorCount;
 
-
-// ----------------------------------------------------------------------------
 // Ensure that Solid State Relais are off when starting
-//
 void setupPins(void) {
-
-pinAsOutput(PIN_HEATER);
-digitalLow(PIN_HEATER); // off
-pinAsOutput(PIN_FAN);
-digitalHigh(PIN_FAN);
-pinAsInputPullUp(PIN_ZX);
-pinAsOutput(PIN_TC_CS);
-pinAsOutput(PIN_LCD_CS);
-pinAsOutput(PIN_TC_CS);
-#ifdef WITH_BEEPER
-    pinAsOutput(PIN_BEEPER);
-#endif
-
+  pinAsOutput(PIN_HEATER);
+  digitalLow(PIN_HEATER); // off
+  pinAsInputPullUp(PIN_ZX);
+  pinAsOutput(PIN_TC_CS);
+  pinAsOutput(PIN_LCD_CS);
+  pinAsOutput(PIN_TC_CS);
+  #ifdef WITH_BEEPER
+  pinAsOutput(PIN_BEEPER);
+  #endif
 }
-// ----------------------------------------------------------------------------
+
 void killRelayPins(void) {
-Timer1.stop();
-detachInterrupt(INT_ZX);
-digitalHigh(PIN_FAN);
-digitalHigh(PIN_HEATER);
-//PORTD |= (1 << PIN_HEATER) | (1 << PIN_FAN); // off
+  Timer1.stop();
+  detachInterrupt(INT_ZX);
+  digitalHigh(PIN_HEATER);
+  closeLid();
 }
 
-// ----------------------------------------------------------------------------
 // wave packet control: only turn the solid state relais on for a percentage 
 // of complete sinusoids (i.e. 1x 360°)
-
 #define CHANNELS       2
 #define CHANNEL_HEATER 0
 #define CHANNEL_FAN    1
@@ -117,10 +100,7 @@ typedef struct Channel_s {
 } Channel_t;
 
 Channel_t Channels[CHANNELS] = {
-  // heater
-  { 0, 0, 0, false, PIN_HEATER }, 
-  // fan
-  { 0, 0, 0, false, PIN_FAN } 
+  { 0, 0, 0, false, PIN_HEATER }
 };
 
 // delay to align relay activation with the actual zero crossing
@@ -137,9 +117,6 @@ struct {
 };
 #endif
 
-// ----------------------------------------------------------------------------
-//                             ZERO CROSSING ISR
-// ----------------------------------------------------------------------------
 // Zero Crossing ISR; per ZX, process one channel per interrupt only
 // NB: use native port IO instead of digitalWrite for better performance
 void zeroCrossingIsr(void) {
@@ -164,18 +141,14 @@ void zeroCrossingIsr(void) {
 
   ch = ((ch + 1) % CHANNELS); // next channel
 
-#ifdef WITH_CALIBRATION
+  #ifdef WITH_CALIBRATION
   if (zxLoopCalibration.iterations < zxCalibrationLoops) {
     zxLoopCalibration.iterations++;
   }
-#endif
+  #endif
 }
 
-// ----------------------------------------------------------------------------
-//                                    TIMER ISR
-// ----------------------------------------------------------------------------
 // timer interrupt handling
-
 void timerIsr(void) { // ticks with 100µS
   static uint32_t lastTicks = 0;
 
@@ -207,49 +180,40 @@ void timerIsr(void) { // ticks with 100µS
 
   timerTicks++;
 
-#ifdef WITH_CALIBRATION
+  #ifdef WITH_CALIBRATION
   if (zxLoopCalibration.iterations < zxCalibrationLoops) {
     zxLoopCalibration.measure[zxLoopCalibration.iterations]++;
   }
-#endif
+  #endif
 }
-// ----------------------------------------------------------------------------
+
 void abortWithError(int error) {
   killRelayPins();
   displayError(error);
 }
-// ----------------------------------------------------------------------------
 
 void setup() {
-#ifdef SERIAL_VERBOSE
+  #ifdef SERIAL_VERBOSE
   Serial.begin(115200);
   Serial.println("Reflow controller started");
-#endif
+  #endif
   
   setupPins();
-  
- 
+  closeLid();
   setupTFT();
 
   if (firstRun()) {
     factoryReset();
     loadParameters(0);
-  } 
-  else {
+  } else {
     loadLastUsedProfile();
   }
-
-
-
-  
  
   do {
     // wait for MAX chip to stabilize
    delay(500);
    readThermocouple();
-  }
-  while ((tcStat > 0) && (thermocoupleErrorCount++ < TC_ERROR_TOLERANCE));
-    
+  } while ((tcStat > 0) && (thermocoupleErrorCount++ < TC_ERROR_TOLERANCE));
 
   if ((tcStat != 0) || (thermocoupleErrorCount  >= TC_ERROR_TOLERANCE)) {
     abortWithError(tcStat);
@@ -260,8 +224,7 @@ void setup() {
   for(int i = 0; i < NUM_TEMP_READINGS; i++) {
     airTemp[i].temp = temperature;
   }
-
-  loadFanSpeed();
+  
   loadPID();
 
   PID.SetOutputLimits(0, 100); // max output 100%
@@ -271,15 +234,14 @@ void setup() {
   delay(1000);
 
   #ifdef WITH_BEEPER
-    tone(PIN_BEEPER,BEEP_FREQ,100);
+  tone(PIN_BEEPER,BEEP_FREQ,100);
   #endif
 
-#ifdef WITH_SPLASH
+  #ifdef WITH_SPLASH
   displaySplash();
-#endif
+  #endif
 
-
-#ifdef WITH_CALIBRATION
+  #ifdef WITH_CALIBRATION
   tft.setCursor(7, 99);  
   tft.print("Calibrating... ");
   delay(400);
@@ -295,11 +257,10 @@ void setup() {
     }
   }
   tft.print(zxLoopDelay);
-#else
+  #else
   zxLoopDelay = DEFAULT_LOOP_DELAY;
-#endif
+  #endif
 
-//  setupMenu();
   menuExit(Menu::actionDisplay); // reset to initial state
   MenuEngine.navigate(&miCycleStart);
   currentState = Settings;
@@ -331,8 +292,6 @@ void updateSoakSetpoint(bool down = false) {
   }
 }
 
-// ----------------------------------------------------------------------------
-
 #ifdef PIDTUNE
 void toggleAutoTune() {
  if(currentState != Tune) { //Set the output to the desired starting frequency.
@@ -350,17 +309,9 @@ void toggleAutoTune() {
 }
 #endif // PIDTUNE
 
-// ----------------------------------------------------------------------------
-
-
-
-// ----------------------------------------------------------------------------
-
 void loop(void) 
 {
-  // --------------------------------------------------------------------------
   // handle encoder
-  //
   encMovement = Encoder.getValue();
   if (encMovement) {
     encAbsolute += encMovement;
@@ -370,9 +321,7 @@ void loop(void)
     }
   }
 
-  // --------------------------------------------------------------------------
   // handle button
-  //
   switch (Encoder.getButton()) {
     case ClickEncoder::Clicked:
       if (currentState == Complete) { // at end of cycle; reset at click
@@ -400,18 +349,14 @@ void loop(void)
       break;
   }
 
-  // --------------------------------------------------------------------------
   // update current menu item while in edit mode
-  //
   if (currentState == Edit) {
     if (MenuEngine.currentItem != &Menu::NullItem) {
       MenuEngine.executeCallbackAction(Menu::actionDisplay);      
     }
   }
 
-  // --------------------------------------------------------------------------
   // handle menu update
-  //
   if (menuUpdateRequest) {
     menuUpdateRequest = false;
     if (currentState < UIMenuEnd && !encMovement && currentState != Edit && previousState != Edit) { // clear menu on child/parent navigation
@@ -420,82 +365,77 @@ void loop(void)
     MenuEngine.render(renderMenuItem, menuItemsVisible);
   }
 
-  // --------------------------------------------------------------------------
   // track state changes
-  //
   if (currentState != previousState) {
     stateChangedTicks = zeroCrossTicks;
     stateChanged = true;
     previousState = currentState;
   }
 
-  // --------------------------------------------------------------------------
-
   if (zeroCrossTicks - lastUpdate >= TICKS_PER_UPDATE) {
     uint32_t deltaT = zeroCrossTicks - lastUpdate;
     lastUpdate = zeroCrossTicks;
-
-
     readThermocouple(); // should be sufficient to read it every 250ms or 500ms   
-
 
     if (tcStat > 0) {
       thermocoupleErrorCount++;
        if ((thermocoupleErrorCount > TC_ERROR_TOLERANCE) && (currentState != Edit)) {
         abortWithError(tcStat);
       } else thermocoupleErrorCount = 0;
-    }
-    else {
-        thermocoupleErrorCount = 0;
-#if 0 // verbose thermocouple error bits
-        tft.setCursor(10, 40);
-        for (uint8_t mask = B111; mask; mask >>= 1) {
-          tft.print(mask & tSensor.stat ? '1' : '0');
-        }
-#endif
-        // rolling average of the temp T1 and T2
-        totalT1 -= readingsT1[index];       // subtract the last reading
-        readingsT1[index] = temperature;
-        totalT1 += readingsT1[index];       // add the reading to the total
-        index = (index + 1) % NUM_TEMP_READINGS;  // next position
-        averageT1 = totalT1 / (float)NUM_TEMP_READINGS;  // calculate the average temp
-    
-        // need to keep track of a few past readings in order to work out rate of rise
-        for (int i = 1; i < NUM_TEMP_READINGS; i++) { // iterate over all previous entries, moving them backwards one index
-          airTemp[i - 1].temp = airTemp[i].temp;
-          airTemp[i - 1].ticks = airTemp[i].ticks;     
-        }
-    
-        airTemp[NUM_TEMP_READINGS - 1].temp = averageT1; // update the last index with the newest average
-        airTemp[NUM_TEMP_READINGS - 1].ticks = (uint16_t)deltaT;
-    
-        // calculate rate of temperature change
-        uint32_t collectTicks = 0;
-        for (int i = 0; i < NUM_TEMP_READINGS; i++) {
-          collectTicks += airTemp[i].ticks;
-        }
-        float tempDiff = (airTemp[NUM_TEMP_READINGS - 1].temp - airTemp[0].temp);
-        float timeDiff = collectTicks / (float)(TICKS_PER_SEC);
+    } else {
+      thermocoupleErrorCount = 0;
         
-        rampRate = tempDiff / timeDiff;
-     
-        Input = airTemp[NUM_TEMP_READINGS - 1].temp; // update the variable the PID reads
-           
-#ifdef SERIAL_VERBOSE
-       Serial.write((uint8_t)Input);
-#endif
+      #if 0 // verbose thermocouple error bits
+      tft.setCursor(10, 40);
+      for (uint8_t mask = B111; mask; mask >>= 1) {
+        tft.print(mask & tSensor.stat ? '1' : '0');
+      }
+      #endif
+      
+      // rolling average of the temp T1 and T2
+      totalT1 -= readingsT1[index];       // subtract the last reading
+      readingsT1[index] = temperature;
+      totalT1 += readingsT1[index];       // add the reading to the total
+      index = (index + 1) % NUM_TEMP_READINGS;  // next position
+      averageT1 = totalT1 / (float)NUM_TEMP_READINGS;  // calculate the average temp
+      
+      // need to keep track of a few past readings in order to work out rate of rise
+      for (int i = 1; i < NUM_TEMP_READINGS; i++) { // iterate over all previous entries, moving them backwards one index
+        airTemp[i - 1].temp = airTemp[i].temp;
+        airTemp[i - 1].ticks = airTemp[i].ticks;     
+      }
+      
+      airTemp[NUM_TEMP_READINGS - 1].temp = averageT1; // update the last index with the newest average
+      airTemp[NUM_TEMP_READINGS - 1].ticks = (uint16_t)deltaT;
+      
+      // calculate rate of temperature change
+      uint32_t collectTicks = 0;
+      
+      for (int i = 0; i < NUM_TEMP_READINGS; i++) {
+        collectTicks += airTemp[i].ticks;
+      }
+      
+      float tempDiff = (airTemp[NUM_TEMP_READINGS - 1].temp - airTemp[0].temp);
+      float timeDiff = collectTicks / (float)(TICKS_PER_SEC);
+      
+      rampRate = tempDiff / timeDiff;
+      
+      Input = airTemp[NUM_TEMP_READINGS - 1].temp; // update the variable the PID reads
+         
+      #ifdef SERIAL_VERBOSE
+      Serial.write((uint8_t)Input);
+      #endif
     }
     // display update
     if (zeroCrossTicks - lastDisplayUpdate >= TICKS_TO_REDRAW) {
       lastDisplayUpdate = zeroCrossTicks;
       if (currentState > UIMenuEnd) {
         updateProcessDisplay();
-      }
-      else displayThermocoupleData(1, tft.height()-16);
+      } else displayThermocoupleData(1, tft.height()-16);
     }
 
     switch (currentState) {
-#ifndef PIDTUNE
+      #ifndef PIDTUNE
       case RampToSoak:
         if (stateChanged) {
           lastRampTicks = zeroCrossTicks;
@@ -506,7 +446,7 @@ void loop(void)
           PID.SetTunings(heaterPID.Kp, heaterPID.Ki, heaterPID.Kd);
           Setpoint = Input;
           #ifdef WITH_BEEPER
-              tone(PIN_BEEPER,BEEP_FREQ,100);
+            tone(PIN_BEEPER,BEEP_FREQ,100);
           #endif
         }
 
@@ -561,14 +501,13 @@ void loop(void)
           stateChanged = false;
           lastRampTicks = zeroCrossTicks;
           PID.SetControllerDirection(REVERSE);
-          PID.SetTunings(fanPID.Kp, fanPID.Ki, fanPID.Kd);
           Setpoint = activeProfile.peakTemp - 15; // get it all going with a bit of a kick! v sluggish here otherwise, too hot too long
-#ifdef WITH_BEEPER
-            tone(PIN_BEEPER,BEEP_FREQ,3000);  // Beep as a reminder that CoolDown starts (and maybe open up the oven door for fast enough cooldown)
-#endif
-#ifdef WITH_SERVO       
-          // TODO: implement servo operated lid
-#endif   
+          #ifdef WITH_BEEPER
+          tone(PIN_BEEPER,BEEP_FREQ,3000);  // Beep as a reminder that CoolDown starts (and maybe open up the oven door for fast enough cooldown)
+          #endif
+          #ifdef WITH_SERVO       
+          openLid();
+          #endif   
         }
 
         updateRampSetpoint(true);
@@ -577,14 +516,13 @@ void loop(void)
           currentState = CoolDown;
         }
         break;
-#endif
+      #endif
+
       case CoolDown:
         if (stateChanged) {
           stateChanged = false;
           PID.SetControllerDirection(REVERSE);
-          PID.SetTunings(fanPID.Kp, fanPID.Ki, fanPID.Kd);
           Setpoint = idleTemp;
-
         }
 
         if (Input < (idleTemp + 5)) {
@@ -592,20 +530,28 @@ void loop(void)
           PID.SetMode(MANUAL);
           Output = 0;
           #ifdef WITH_BEEPER
-            tone(PIN_BEEPER,BEEP_FREQ,500);  //End Beep
-            delay(1500);
-            tone(PIN_BEEPER,BEEP_FREQ,500);
-            delay(1500);
-            tone(PIN_BEEPER,BEEP_FREQ,1500);
+          tone(PIN_BEEPER,BEEP_FREQ,500);  //End Beep
+          delay(1500);
+          tone(PIN_BEEPER,BEEP_FREQ,500);
+          delay(1500);
+          tone(PIN_BEEPER,BEEP_FREQ,1500);
           #endif
         }
+        
+      #ifdef WITH_SERVO
+      case Complete:
+        if (Input < (idleTemp - 5)) {
+          closeLid();
+        }
+        break;
+      #endif
 
-#ifdef PIDTUNE
+      #ifdef PIDTUNE
       case Tune:
         {
           Setpoint = 210.0;
           int8_t val = PIDTune.Runtime();
-         // PIDTune.setpoint = 210.0; // is private inside PIDTune
+          // PIDTune.setpoint = 210.0; // is private inside PIDTune
 
           if (val != 0) {
             currentState = CoolDown;
@@ -627,7 +573,7 @@ void loop(void)
           }
         }
         break;
-#endif
+      #endif
     }
   }
 
@@ -638,7 +584,7 @@ void loop(void)
   //if (Setpoint > Input + 50) abortWithError(10); // if we're 50 degree cooler than setpoint, abort
   //if (Input > Setpoint + 50) abortWithError(20); // or 50 degrees hotter, also abort
   
-#ifndef PIDTUNE
+  #ifndef PIDTUNE
   PID.Compute();
 
   // decides which control signal is fed to the output for this cycle
@@ -651,16 +597,13 @@ void loop(void)
       && currentState != Edit)
   {
     heaterValue = Output;
-    fanValue = fanAssistSpeed;
-  } 
-  else {
+  } else {
     heaterValue = 0;
     fanValue = Output;
   }
-#else
+  #else
   heaterValue = Output;
-  fanValue = fanAssistSpeed;
-#endif
+  #endif
 
   Channels[CHANNEL_HEATER].target = heaterValue;
 
@@ -670,7 +613,7 @@ void loop(void)
 
 
 void saveProfile(unsigned int targetProfile, bool quiet) {
-#ifndef PIDTUNE
+  #ifndef PIDTUNE
   activeProfileId = targetProfile;
 
   if (!quiet) {
@@ -679,15 +622,14 @@ void saveProfile(unsigned int targetProfile, bool quiet) {
   saveParameters(activeProfileId); // activeProfileId is modified by the menu code directly, this method is called by a menu action
 
   if (!quiet) delay(500);
-#endif
+  #endif
 }
 
 #define WITH_CHECKSUM 1
 
 bool firstRun() { 
-#ifndef PIDTUNE
-#ifndef ALWAYS_FIRST_RUN
-
+  #ifndef PIDTUNE
+  #ifndef ALWAYS_FIRST_RUN
   // if all bytes of a profile in the middle of the eeprom space are 255, we assume it's a first run
   unsigned int offset = 15 * sizeof(Profile_t);
 
@@ -696,10 +638,7 @@ bool firstRun() {
       return false;
     }
   }
-#endif
-#endif
+  #endif
+  #endif
   return true;
 }
-
-
-// ------

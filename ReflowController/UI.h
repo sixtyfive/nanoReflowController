@@ -1,36 +1,24 @@
 #ifndef UI_H
 #define UI_H
 
-
-#include <PDQ_GFX.h>        // PDQ: Core graphics library
-#include "PDQ_ST7735_config.h"      // PDQ: ST7735 pins and other setup for this sketch
-#include <PDQ_ST7735.h>     // PDQ: Hardware-specific driver library
+#include <PDQ_GFX.h>           // PDQ: Core graphics library
+#include "PDQ_ST7735_config.h" // PDQ: ST7735 pins and other setup for this sketch
+#include <PDQ_ST7735.h>        // PDQ: Hardware-specific driver library
 #define ST7735_RST_PIN 8                                           
 #include <Menu.h>
 #include <ClickEncoder.h>
 #include "globalDefs.h"
 #include "eepromHelpers.h"
 #include "config.h"
+#include "lid.h"
 
 #define MENU_TEXT_XPOS 5
 #define MENU_BAR_XPOS 3
 
-
-// ----------------------------------------------------------------------------
-// Hardware Configuration 
-
-// 1.44" or 1.8" TFT via SPI -> breadboard
-
+// Hardware Configuration
 #define TEMPERATURE_WINDOW 1.2 // n times the profile's maximum temperature
 
-
-// ----------------------------------------------------------------------------
-
-
 PDQ_ST7735 tft;     // PDQ: create LCD object (using pins in "PDQ_ST7735_config.h")
-
-
-// ------------ menu
 
 Menu::Engine MenuEngine;
 
@@ -48,48 +36,35 @@ typedef struct {
 
 LastItemState_t currentlyRenderedItems[menuItemsVisible];
 
-// ------------ encoder
 ClickEncoder Encoder(PIN_ENC_A, PIN_ENC_B, PIN_ENC_BTN, ENC_STEPS_PER_NOTCH, IS_ENC_ACTIVE);
 int16_t encMovement;
 int16_t encAbsolute;
 int16_t encLastAbsolute = -1;
 
-// ------------ 
-
 float pxPerSec;
 float pxPerC;
 uint16_t xOffset; // used for wraparound on x axis
 
-
 void setupTFT() {
-
-  
-    FastPin<ST7735_RST_PIN>::setOutput();
+  FastPin<ST7735_RST_PIN>::setOutput();
   FastPin<ST7735_RST_PIN>::hi();
   FastPin<ST7735_RST_PIN>::lo();
   delay(1);
   FastPin<ST7735_RST_PIN>::hi();
   
-   tft.begin();
+  tft.begin();
   
   tft.setTextWrap(false);
   tft.setTextSize(1);
   tft.setRotation(LCD_ROTATION);
-    tft.fillScreen(ST7735_WHITE);
+  tft.fillScreen(ST7735_WHITE);
   tft.setTextColor(ST7735_BLACK, ST7735_WHITE);
 }
 
-void   setupMenu() {
-/*    menuExit(Menu::actionDisplay); // reset to initial state
-  MenuEngine.navigate(&miCycleStart);
-  currentState = Settings;
-  menuUpdateRequest = true;*/
-}
-
 void displaySplash() {
-      tft.fillScreen(ST7735_WHITE);
-       
+  tft.fillScreen(ST7735_WHITE);
   tft.setTextColor(ST7735_BLACK);
+  
   // splash screen
   tft.setCursor(2, 30);
   tft.setTextSize(2);
@@ -101,15 +76,17 @@ void displaySplash() {
   tft.print("v"); tft.print(ver);
   
   tft.setCursor(0, 109);
-  tft.print("(c)2014 karl@pitrich.com");
+  tft.print("2014 K. Pitrich");
   tft.setCursor(0, 119);
-  tft.print("(c)2017 Dasaki");
+  tft.print("2017 Dasaki");
+  tft.setCursor(0, 129);
+  tft.print("2020 JR Schmid");
+
   delay(3000);
 }
 
 
 void displayError(int error) {
-
   tft.setTextSize(1);
   tft.setTextColor(ST7735_WHITE, ST7735_RED);
   tft.fillScreen(ST7735_RED);
@@ -134,8 +111,7 @@ void displayError(int error) {
     tft.println("Power off,");
     tft.setCursor(10, 75);
     tft.println("check connections");
-  }
-  else {
+  } else {
     tft.println("Temperature"); 
     tft.setCursor(10, 30);
     tft.println("following error");
@@ -143,22 +119,21 @@ void displayError(int error) {
     tft.print("during ");
     tft.println((error == 10) ? "heating" : "cooling");
   }
+  
   #ifdef WITH_BEEPER
-    tone(PIN_BEEPER,BEEP_FREQ,2000);  //Error Beep
+  tone(PIN_BEEPER,BEEP_FREQ,2000); // Error Beep
   #endif
-  while (1) { //  stop
-    ;
-  }
-}
+  #ifdef WITH_SERVO
+  closeLid();
+  #endif
 
-// ----------------------------------------------------------------------------
+  while (1) {;} // Stop
+}
 
 void alignRightPrefix(uint16_t v) {
   if (v < 1e2) tft.print(' '); 
   if (v < 1e1) tft.print(' ');
 }
-
-// ----------------------------------------------------------------------------
 
 void displayThermocoupleData(uint8_t xpos, uint8_t ypos) {
   tft.setCursor(xpos, ypos);
@@ -166,10 +141,10 @@ void displayThermocoupleData(uint8_t xpos, uint8_t ypos) {
 
   // temperature
   tft.setTextSize(2);
-  alignRightPrefix((int)temperature);
+  alignRightPrefix((uint16_t)temperature);
   switch (tcStat) {
     case 0:
-      tft.print((uint8_t)temperature);
+      tft.print((uint16_t)temperature);
       tft.print("\367C");
       break;
     case 1:
@@ -177,10 +152,6 @@ void displayThermocoupleData(uint8_t xpos, uint8_t ypos) {
       break;
   }
 }
-
-
-// ----------------------------------------------------------------------------
-
 
 void clearLastMenuItemRenderState() {
   // memset(&currentlyRenderedItems, 0xff, sizeof(LastItemState_t) * menuItemsVisible);
@@ -191,16 +162,10 @@ void clearLastMenuItemRenderState() {
   }
 }
 
-// ----------------------------------------------------------------------------
-
 extern const Menu::Item_t miRampUpRate, miRampDnRate, miSoakTime, 
                           miSoakTempA, miSoakTempB, miPeakTime, miPeakTemp,
                           miLoadProfile, miSaveProfile,
-                          miPidSettingP, miPidSettingI, miPidSettingD,
-                          miFanSettings;
-
-
-// ----------------------------------------------------------------------------
+                          miPidSettingP, miPidSettingI, miPidSettingD;
 
 bool menuExit(const Menu::Action_t a) {
   clearLastMenuItemRenderState();
@@ -209,37 +174,27 @@ bool menuExit(const Menu::Action_t a) {
   return false;
 }
 
-// ----------------------------------------------------------------------------
-
 bool menuDummy(const Menu::Action_t a) {
   return true;
 }
-
-// ----------------------------------------------------------------------------
 
 void printDouble(double val, uint8_t precision = 1) {
   ftoa(buf, val, precision);
   tft.print(buf);
 }
 
-
-// ----------------------------------------------------------------------------
-
 void getItemValuePointer(const Menu::Item_t *mi, double **d, int16_t **i) {
   if (mi == &miRampUpRate)  *d = &activeProfile.rampUpRate;
   if (mi == &miRampDnRate)  *d = &activeProfile.rampDownRate;
   if (mi == &miSoakTime)    *i = &activeProfile.soakDuration;
-  if (mi == &miSoakTempA)    *i = &activeProfile.soakTempA;
-  if (mi == &miSoakTempB)    *i = &activeProfile.soakTempB;
+  if (mi == &miSoakTempA)   *i = &activeProfile.soakTempA;
+  if (mi == &miSoakTempB)   *i = &activeProfile.soakTempB;
   if (mi == &miPeakTime)    *i = &activeProfile.peakDuration;
   if (mi == &miPeakTemp)    *i = &activeProfile.peakTemp;
   if (mi == &miPidSettingP) *d = &heaterPID.Kp;
   if (mi == &miPidSettingI) *d = &heaterPID.Ki;
-  if (mi == &miPidSettingD) *d = &heaterPID.Kd; 
-  if (mi == &miFanSettings) *i = &fanAssistSpeed;
+  if (mi == &miPidSettingD) *d = &heaterPID.Kd;
 }
-
-// ----------------------------------------------------------------------------
 
 bool isPidSetting(const Menu::Item_t *mi) {
   return mi == &miPidSettingP || mi == &miPidSettingI || mi == &miPidSettingD;
@@ -248,8 +203,6 @@ bool isPidSetting(const Menu::Item_t *mi) {
 bool isRampSetting(const Menu::Item_t *mi) {
   return mi == &miRampUpRate || mi == &miRampDnRate;
 }
-
-// ----------------------------------------------------------------------------
 
 bool getItemValueLabel(const Menu::Item_t *mi, char *label) {
   int16_t *iValue = NULL;
@@ -268,23 +221,17 @@ bool getItemValueLabel(const Menu::Item_t *mi, char *label) {
       *p++ = 0xf7; *p++ = 'C'; *p++ = '/'; *p++ = 's';
       *p = '\0';
     }
-  }
-  else {
+  } else {
     if (mi == &miPeakTemp || mi == &miSoakTempA || mi == &miSoakTempB ) {
       itostr(label, *iValue, "\367C");
     }
     if (mi == &miPeakTime || mi == &miSoakTime) {
       itostr(label, *iValue, "s");
     }
-    if (mi == &miFanSettings) {
-      itostr(label, *iValue, "%");
-    }
   }
 
   return dValue || iValue;
 }
-
-// ----------------------------------------------------------------------------
 
 bool menu_editNumericalValue(const Menu::Action_t action) { 
   if (action == Menu::actionDisplay) {
@@ -326,14 +273,12 @@ bool menu_editNumericalValue(const Menu::Action_t action) {
         tmp = *dValue;
         tmp *= factor;
         encAbsolute = (int16_t)tmp;
-      }
-      else {
+      } else {
         tmp = encAbsolute;
         tmp /= factor;
         *dValue = tmp;
       }      
-    }
-    else {
+    } else {
       if (initial) encAbsolute = *iValue;
       else *iValue = encAbsolute;
     }
@@ -353,9 +298,6 @@ bool menu_editNumericalValue(const Menu::Action_t action) {
       if (isPidSetting(MenuEngine.currentItem)) {
         savePID();
       }
-      else if (MenuEngine.currentItem == &miFanSettings) {
-        saveFanSpeed();
-      }
       // don't autosave profile, so that one can do "save as" without overwriting the current profile
 
       currentState = Settings;
@@ -367,11 +309,8 @@ bool menu_editNumericalValue(const Menu::Action_t action) {
   }
 }
 
-
-// ----------------------------------------------------------------------------
-
 void factoryReset() {
-#ifndef PIDTUNE
+  #ifndef PIDTUNE
   makeDefaultProfile();
   
   tft.fillScreen(ST7735_BLUE);
@@ -385,9 +324,6 @@ void factoryReset() {
     saveParameters(i);
   }
 
-  fanAssistSpeed = FACTORY_FAN_ASSIST_SPEED;
-  saveFanSpeed();
-
   heaterPID.Kp =  FACTORY_KP;// 0.60; 
   heaterPID.Ki =  FACTORY_KI; //0.01;
   heaterPID.Kd = FACTORY_KD; //19.70;
@@ -397,13 +333,11 @@ void factoryReset() {
   saveLastUsedProfile();
 
   delay(500);
-#endif
+  #endif
 }
 
-// ----------------------------------------------------------------------------
-
 bool menu_factoryReset(const Menu::Action_t action) {
-#ifndef PIDTUNE
+  #ifndef PIDTUNE
   if (action == Menu::actionDisplay) {
     bool initial = currentState != Edit;
     currentState = Edit;
@@ -432,9 +366,8 @@ bool menu_factoryReset(const Menu::Action_t action) {
       return false;
     }
   }
-#endif // PIDTUNE
+  #endif // PIDTUNE
 }
-
 
 void memoryFeedbackScreen(uint8_t profileId, bool loading) {
   tft.fillScreen(ST7735_GREEN);
@@ -446,16 +379,13 @@ void memoryFeedbackScreen(uint8_t profileId, bool loading) {
   tft.print(profileId);  
 }
 
-// ----------------------------------------------------------------------------
-
 void saveProfile(unsigned int targetProfile, bool quiet = false);
-
 
 void loadProfile(unsigned int targetProfile) {
   memoryFeedbackScreen(activeProfileId, true);
   bool ok = loadParameters(targetProfile);
 
-#if 0
+  #if 0
   if (!ok) {
     lcd.setCursor(0, 2);
     lcd.print("Checksum error!");
@@ -463,7 +393,7 @@ void loadProfile(unsigned int targetProfile) {
     lcd.print("Review profile.");
     delay(2500);
   }
-#endif
+  #endif
 
   // save in any way, as we have no undo
   activeProfileId = targetProfile;
@@ -472,11 +402,8 @@ void loadProfile(unsigned int targetProfile) {
   delay(500);
 }
 
-
-// ----------------------------------------------------------------------------
-
 bool menu_saveLoadProfile(const Menu::Action_t action) {
-#ifndef PIDTUNE
+  #ifndef PIDTUNE
   bool isLoad = MenuEngine.currentItem == &miLoadProfile;
 
   if (action == Menu::actionDisplay) {
@@ -516,10 +443,8 @@ bool menu_saveLoadProfile(const Menu::Action_t action) {
       return false;
     }
   }
-#endif // PIDTUNE
+  #endif // PIDTUNE
 }
-
-// ----------------------------------------------------------------------------
 
 void toggleAutoTune();
 
@@ -528,19 +453,17 @@ bool menu_cycleStart(const Menu::Action_t action) {
     startCycleZeroCrossTicks = zeroCrossTicks;
     menuExit(action);
 
-#ifndef PIDTUNE    
+    #ifndef PIDTUNE    
     currentState = RampToSoak;
-#else
+    #else
     toggleAutoTune();
-#endif
+    #endif
     initialProcessDisplay = false;
     menuUpdateRequest = false;
   }
 
   return true;
 }
-
-// ----------------------------------------------------------------------------
 
 void renderMenuItem(const Menu::Item_t *mi, uint8_t pos) {
   //ScopedTimer tm("  render menuitem");
@@ -579,9 +502,7 @@ void renderMenuItem(const Menu::Item_t *mi, uint8_t pos) {
   currentlyRenderedItems[pos].current = isCurrent;
 }
 
-// ----------------------------------------------------------------------------
 // Name, Label, Next, Previous, Parent, Child, Callback
-
 MenuItem(miExit, "", Menu::NullItem, Menu::NullItem, Menu::NullItem, miCycleStart, menuExit);
 
 #ifndef PIDTUNE
@@ -598,70 +519,69 @@ MenuItem(miEditProfile, "Edit Profile", miLoadProfile, miCycleStart,   miExit, m
   MenuItem(miPeakTime,   "Peak time", miRampDnRate,    miPeakTemp,     miEditProfile, Menu::NullItem, menu_editNumericalValue);
   MenuItem(miRampDnRate, "Ramp down", Menu::NullItem,  miPeakTime,     miEditProfile, Menu::NullItem, menu_editNumericalValue);
 MenuItem(miLoadProfile,  "Load Profile",  miSaveProfile,  miEditProfile, miExit, Menu::NullItem, menu_saveLoadProfile);
-MenuItem(miSaveProfile,  "Save Profile",  miFanSettings,  miLoadProfile, miExit, Menu::NullItem, menu_saveLoadProfile);
-MenuItem(miFanSettings,  "Fan Speed",  miPidSettings,  miSaveProfile, miExit, Menu::NullItem, menu_editNumericalValue);
-MenuItem(miPidSettings,  "PID Settings",  miFactoryReset, miFanSettings, miExit, miPidSettingP,  menuDummy);
+MenuItem(miSaveProfile,  "Save Profile",  miPidSettings,  miLoadProfile, miExit, Menu::NullItem, menu_saveLoadProfile);
+MenuItem(miPidSettings,  "PID Settings",  miFactoryReset, miSaveProfile, miExit, miPidSettingP,  menuDummy);
   MenuItem(miPidSettingP,  "Heater Kp",  miPidSettingI, Menu::NullItem, miPidSettings, Menu::NullItem, menu_editNumericalValue);
   MenuItem(miPidSettingI,  "Heater Ki",  miPidSettingD, miPidSettingP,  miPidSettings, Menu::NullItem, menu_editNumericalValue);
   MenuItem(miPidSettingD,  "Heater Kd",  Menu::NullItem, miPidSettingI, miPidSettings, Menu::NullItem, menu_editNumericalValue);
 MenuItem(miFactoryReset, "Factory Reset", Menu::NullItem, miPidSettings, miExit, Menu::NullItem, menu_factoryReset);
 
-// ----------------------------------------------------------------------------
-void drawInitialProcessDisplay()
-{
-    const uint8_t h =  tft.height()-42;
+void drawInitialProcessDisplay() {
+  const uint8_t h =  tft.height()-42;
   const uint8_t w = tft.width()-24;
   const uint8_t yOffset =  30; // space not available for graph  
-    double tmp;
- initialProcessDisplay = true;
+  double tmp;
+  initialProcessDisplay = true;
 
-    tft.fillScreen(ST7735_WHITE);
-    tft.fillRect(0, 0, tft.width(), menuItemHeight, ST7735_BLUE);
-    tft.setCursor(1, 2);
-#ifndef PIDTUNE
-    tft.print("Profile ");
-    tft.print(activeProfileId);
-#else
-    tft.print("Tuning ");
-#endif
+  tft.fillScreen(ST7735_WHITE);
+  tft.fillRect(0, 0, tft.width(), menuItemHeight, ST7735_BLUE);
+  tft.setCursor(1, 2);
+  #ifndef PIDTUNE
+  tft.print("Profile ");
+  tft.print(activeProfileId);
+  #else
+  tft.print("Tuning ");
+  #endif
 
-    tmp = h / (activeProfile.peakTemp * TEMPERATURE_WINDOW) * 100.0;
-    pxPerC = tmp;
-    
-    double estimatedTotalTime = 0;//60 * 12;
-    // estimate total run time for current profile
-    estimatedTotalTime = activeProfile.soakDuration + activeProfile.peakDuration;
-    estimatedTotalTime += (activeProfile.peakTemp - temperature)/(float)activeProfile.rampUpRate;
-    estimatedTotalTime += (activeProfile.peakTemp - temperature)/(float)activeProfile.rampDownRate;
-    estimatedTotalTime *= 1.1; // add some spare
-    
-    tmp = w / estimatedTotalTime ; 
-    pxPerSec = (float)tmp;
+  tmp = h / (activeProfile.peakTemp * TEMPERATURE_WINDOW) * 100.0;
+  pxPerC = tmp;
+  
+  double estimatedTotalTime = 0;//60 * 12;
+  // estimate total run time for current profile
+  estimatedTotalTime = activeProfile.soakDuration + activeProfile.peakDuration;
+  estimatedTotalTime += (activeProfile.peakTemp - temperature)/(float)activeProfile.rampUpRate;
+  estimatedTotalTime += (activeProfile.peakTemp - temperature)/(float)activeProfile.rampDownRate;
+  estimatedTotalTime *= 1.1; // add some spare
+  
+  tmp = w / estimatedTotalTime ; 
+  pxPerSec = (float)tmp;
    
-#ifdef SERIAL_VERBOSE
- Serial.print("estimatedTotalTime: ");
-    Serial.println(estimatedTotalTime);
-    Serial.print("pxPerSec: ");
-    Serial.println(pxPerSec);
-    Serial.print("Calc pxPerC/S: ");
-    Serial.println(pxPerC);
-    Serial.print("/");
-    Serial.println(pxPerSec);
-#endif   
-    // 50°C grid
-    int16_t t = (uint16_t)(activeProfile.peakTemp * TEMPERATURE_WINDOW);
-    tft.setTextColor(tft.Color565(0xa0, 0xa0, 0xa0));
-    tft.setTextSize(1);
-    for (uint16_t tg = 0; tg < t; tg += 50) {
-      uint16_t l = h - (tg * pxPerC / 100) + yOffset;
-      tft.drawFastHLine(0, l, tft.width(), tft.Color565(0xe0, 0xe0, 0xe0));
-      tft.setCursor(tft.width()-24, l-7);
-      alignRightPrefix((int)tg); 
-      tft.print((int)tg);
-      tft.print("\367");
-    }
+  #ifdef SERIAL_VERBOSE
+  Serial.print("estimatedTotalTime: ");
+  Serial.println(estimatedTotalTime);
+  Serial.print("pxPerSec: ");
+  Serial.println(pxPerSec);
+  Serial.print("Calc pxPerC/S: ");
+  Serial.println(pxPerC);
+  Serial.print("/");
+  Serial.println(pxPerSec);
+  #endif
+   
+  // 50°C grid
+  int16_t t = (uint16_t)(activeProfile.peakTemp * TEMPERATURE_WINDOW);
+  tft.setTextColor(tft.Color565(0xa0, 0xa0, 0xa0));
+  tft.setTextSize(1);
+  
+  for (uint16_t tg = 0; tg < t; tg += 50) {
+    uint16_t l = h - (tg * pxPerC / 100) + yOffset;
+    tft.drawFastHLine(0, l, tft.width(), tft.Color565(0xe0, 0xe0, 0xe0));
+    tft.setCursor(tft.width()-24, l-7);
+    alignRightPrefix((int)tg); 
+    tft.print((int)tg);
+    tft.print("\367");
+  }
 }
-// ----------------------------------------------------------------------------
+
 void updateProcessDisplay() {
   const uint8_t h =  tft.height()-42;
   const uint8_t w = tft.width()-24;
@@ -688,12 +608,11 @@ void updateProcessDisplay() {
 
   y += menuItemHeight + 2;
 
-
   displayThermocoupleData(1, y);
   
   tft.setTextSize(1);
 
-#ifndef PIDTUNE
+  #ifndef PIDTUNE
   // current state
   y -= 2;
   tft.setCursor(tft.width()-65, y);
@@ -713,7 +632,7 @@ void updateProcessDisplay() {
   tft.print("        "); // lazy: fill up space
 
   tft.setTextColor(ST7735_BLACK, ST7735_WHITE);
-#endif
+  #endif
 
   // set point
   y += 10;
@@ -724,13 +643,11 @@ void updateProcessDisplay() {
   tft.print("\367C  ");
 
   // draw temperature curves
-
   if (xOffset >= elapsed) {
     xOffset = 0;
   }
 
   do { // x with wrap around
-    
     dx = (uint16_t)((elapsed - xOffset) * pxPerSec);
     if (dx > w) {
       xOffset = elapsed;
@@ -755,18 +672,8 @@ void updateProcessDisplay() {
   tft.print((int)heaterValue);
   tft.print('%');
 
-  tft.print(" \x2a");
-  alignRightPrefix((int)fanValue); 
-  tft.print((int)fanValue);
-  tft.print('%');
-
   tft.print(" \x12 "); // alternative: \x7f
   printDouble(rampRate);
-  tft.print("\367C/s    ");
-  
+  tft.print("\367C/s    "); 
 }
-// ----------------------------------------------------------------------------
-
-
-
 #endif // UI_H

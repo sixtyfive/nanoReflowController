@@ -1,13 +1,7 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
-// ----------------------------------------------------------------------------
-
 #include <Arduino.h>
-
-
-// ----------------------------------------------------------------------------
-// 
 
 class ScopedTimer {
 public:
@@ -24,13 +18,9 @@ private:
   const unsigned long ts;
 };
 
-// ----------------------------------------------------------------------------
-
 template<typename T> inline const T labs(T const& x) {
     return (x < 0) ? -x : x;
 }
-
-// ----------------------------------------------------------------------------
 
 long lpow(int base, int exponent) {
   long result = 1;
@@ -43,12 +33,6 @@ long lpow(int base, int exponent) {
   }
   return result;
 }
-
-//double round(double x) {
-//    return (x >= 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
-//}
-
-// ----------------------------------------------------------------------------
 
 void itoa10(int32_t n, char *result, bool preventMinus = false) {
   uint32_t u;
@@ -80,8 +64,6 @@ void itoa10(int32_t n, char *result, bool preventMinus = false) {
   result[i] = '\0';
 }
 
-// ----------------------------------------------------------------------------
-
 uint8_t countDigits(uint32_t n) {
   uint8_t d = 1;
   switch (n) {
@@ -96,8 +78,6 @@ uint8_t countDigits(uint32_t n) {
   }
   return d;
 }
-
-// ----------------------------------------------------------------------------
 
 void ftoa(char *buf, float val, int places) {
   if (signbit(val)) *buf++ = '-';
@@ -130,8 +110,6 @@ void ftoa(char *buf, float val, int places) {
   }
 }
 
-// ----------------------------------------------------------------------------
-
 void itostr(char *r, int16_t val, char *unit = NULL) {
   char *p = r, *u = unit;
   itoa10(val, p);
@@ -140,17 +118,12 @@ void itostr(char *r, int16_t val, char *unit = NULL) {
   *p = '\0';
 }
 
-// ---------------------------------------------------------------------------- 
 // crc8
-//
 // Copyright (c) 2002 Colin O'Flynn
-// Minor changes by M.Thomas 9/2004 
-// ----------------------------------------------------------------------------
+// Minor changes by M.Thomas 9/2004
 
 #define CRC8INIT    0x00
-#define CRC8POLY    0x18              //0X18 = X^8+X^5+X^4+X^0
-
-// ----------------------------------------------------------------------------
+#define CRC8POLY    0x18 // 0X18 = X^8+X^5+X^4+X^0
 
 uint8_t crc8(uint8_t *data, uint16_t data_length) {
   uint8_t  b;
@@ -184,5 +157,4 @@ uint8_t crc8(uint8_t *data, uint16_t data_length) {
   
   return crc;
 }
-
-#endif // HELPERS_H
+#endif
