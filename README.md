@@ -1,10 +1,7 @@
 Reflow Oven Controller
 =====================
 
-* Forked from Dasaki, who forked from 0xPIT, who had originally forked from estechnical.
-* My version has seen more code cleanup. Among other things, unfinished features were removed.
-* What was intended as controlling a servo for opening the lid and a fan for helping the cooldown is now an extra ATTiny opening the lid and starting the fan.
-* Unlike the original authors, I didn't create a custom PCB but have built everything on perfboard.
+Forked from Dasaki, who forked from 0xPIT, who had originally forked from estechnical. My version has seen more code cleanup. Among other things, unfinished features were removed. What was intended as controlling a servo for opening the lid and a fan for helping the cooldown is now an extra ATTiny opening the lid and starting the fan and unlike the original authors, I didn't create a custom PCB but have built everything on perfboard.
 
 These features are still in the firmware, mostly unchanged from Dasaki's version:
 
