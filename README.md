@@ -20,9 +20,9 @@ These features are still in the firmware, mostly unchanged from Dasaki's version
 
 (C) 2017 David Sanz Kirbis
 
-(C) 2014 Karl Pitrich <karl@pitrich.com>
+(C) 2014 Karl Pitrich
 
-(C) 2013 Ed Simmons <ed@estechnical.co.uk>
+(C) 2013 Ed Simmons
 
 **Warning: This project operates with possibly lethal mains voltage. If you don't feel comfortable or don't have knowledge working with mains voltage, STOP right here and find someone to help you!**
 
