@@ -13,7 +13,7 @@ These features are still in the firmware, mostly unchanged from Dasaki's version
 * TFT display drawing the temperature curves (using a 5V-compatible 1.8" or 1.44" SPI based on the ST7735 controller)
 * User interface controlled using a cheap rotary encoder and its button
 * A MAX6675 module as interface to a K-type thermocouple
-* Stores up to 30 temperature profiles in EEPROM
+* Up to 30 temperature profiles in EEPROM
 * Configurable PID parameters
 
 (C) 2020 J. R. Schmid
