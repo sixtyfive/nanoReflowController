@@ -13,6 +13,10 @@ These features are still in the firmware, mostly unchanged from Dasaki's version
 * Up to 30 temperature profiles in EEPROM
 * Configurable PID parameters
 
+**Warning: This project operates with possibly lethal mains voltage. If you don't feel comfortable or don't have knowledge working with mains voltage, STOP right here and find someone to help you!**
+
+For more information, follow the forks backwards.
+
 (C) 2020 J. R. Schmid
 
 (C) 2017 David Sanz Kirbis
@@ -20,7 +24,3 @@ These features are still in the firmware, mostly unchanged from Dasaki's version
 (C) 2014 Karl Pitrich
 
 (C) 2013 Ed Simmons
-
-**Warning: This project operates with possibly lethal mains voltage. If you don't feel comfortable or don't have knowledge working with mains voltage, STOP right here and find someone to help you!**
-
-For more information, follow the forks backwards.
